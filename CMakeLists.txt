@@ -28,8 +28,8 @@ set(ONPAIR_SOURCES
     src/onpair16.cpp
 )
 
-add_library(onpair_lib STATIC ${ONPAIR_SOURCES})
-target_include_directories(onpair_lib PUBLIC ${PROJECT_INCLUDE_DIRS})
+add_library(onpair STATIC ${ONPAIR_SOURCES})
+target_include_directories(onpair PUBLIC ${PROJECT_INCLUDE_DIRS})
 
 # Build examples
 file(GLOB PROJECT_EXECUTABLES examples/*.cpp)
@@ -44,7 +44,7 @@ foreach(executable_path ${PROJECT_EXECUTABLES})
     
     # Include directories and link library
     target_include_directories(${executable_name} PRIVATE ${PROJECT_INCLUDE_DIRS})
-    target_link_libraries(${executable_name} onpair_lib)
+    target_link_libraries(${executable_name} onpair)
 endforeach()
 
 # Build tests
@@ -59,7 +59,7 @@ foreach(test_path ${TEST_SOURCES})
     
     # Include directories and link library
     target_include_directories(${test_name} PRIVATE ${PROJECT_INCLUDE_DIRS})
-    target_link_libraries(${test_name} onpair_lib)
+    target_link_libraries(${test_name} onpair)
 endforeach()
 
 # Define a reusable variable for optimization flags
