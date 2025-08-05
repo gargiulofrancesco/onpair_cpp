@@ -3,8 +3,8 @@
 OnPair16::OnPair16(size_t num_strings, size_t total_bytes) {
     compressed_data.reserve(total_bytes);
     string_boundaries.reserve(num_strings + 1);
-    dictionary_data.reserve(2 * 1024 * 1024); // 2 MiB
-    dictionary_offsets.reserve(1 << 16);
+    dictionary.reserve(2 * 1024 * 1024); // 2 MiB
+    token_boundaries.reserve(1 << 16);
 }
 
 void OnPair16::compress_strings(const std::vector<std::string>& strings) {
@@ -18,8 +18,8 @@ void OnPair16::compress_bytes(const uint8_t* data, const std::vector<size_t>& en
 }
 
 size_t OnPair16::decompress_string(size_t index, uint8_t* buffer) const {
-    const uint8_t* dict_ptr = dictionary_data.data();
-    const uint32_t* offsets_ptr = dictionary_offsets.data();
+    const uint8_t* dict_ptr = dictionary.data();
+    const uint32_t* offsets_ptr = token_boundaries.data();
     size_t size = 0;
 
     size_t data_start = string_boundaries[index];
@@ -41,8 +41,8 @@ size_t OnPair16::decompress_string(size_t index, uint8_t* buffer) const {
 }
 
 size_t OnPair16::decompress_all(uint8_t* buffer) const {
-    const uint8_t* dict_ptr = dictionary_data.data();
-    const uint32_t* offsets_ptr = dictionary_offsets.data();
+    const uint8_t* dict_ptr = dictionary.data();
+    const uint32_t* offsets_ptr = token_boundaries.data();
     size_t size = 0;
 
     for (uint16_t token_id : compressed_data) {
@@ -59,17 +59,12 @@ size_t OnPair16::decompress_all(uint8_t* buffer) const {
 
 size_t OnPair16::space_used() const {
     return compressed_data.size() * sizeof(uint16_t) + 
-           dictionary_data.size() + 
-           dictionary_offsets.size() * sizeof(uint32_t) +
-           string_boundaries.size() * sizeof(size_t);
-}
-
-const char* OnPair16::name() const {
-    return "OnPair16";
+           dictionary.size() + 
+           token_boundaries.size() * sizeof(uint32_t) +
 }
 
 LongestPrefixMatcher16 OnPair16::train_dictionary(const uint8_t* data, const std::vector<size_t>& end_positions) {
-    dictionary_offsets.push_back(0);
+    token_boundaries.push_back(0);
     
     robin_hood::unordered_map<std::pair<uint16_t, uint16_t>, uint16_t, PairHash> frequency;
     LongestPrefixMatcher16 lpm;   
@@ -80,8 +75,8 @@ LongestPrefixMatcher16 OnPair16::train_dictionary(const uint8_t* data, const std
     for(uint16_t i=0; i<=255; i++) {
         uint8_t value = static_cast<uint8_t>(i);
         lpm.insert(&value, 1, i);
-        dictionary_data.push_back(value);
-        dictionary_offsets.push_back(dictionary_data.size());
+        dictionary.push_back(value);
+        token_boundaries.push_back(dictionary.size());
     }
 
     // Shuffle entries
@@ -131,8 +126,8 @@ LongestPrefixMatcher16 OnPair16::train_dictionary(const uint8_t* data, const std
                 if (frequency[token_pair] >= threshold) {
                     added_token = lpm.insert(data + pos - previous_length, previous_length + match_length, next_token_id);
                     if(added_token) {
-                        dictionary_data.insert(dictionary_data.end(), data + pos - previous_length, data + pos + match_length);
-                        dictionary_offsets.push_back(dictionary_data.size());
+                        dictionary.insert(dictionary.end(), data + pos - previous_length, data + pos + match_length);
+                        token_boundaries.push_back(dictionary.size());
                         
                         frequency.erase(token_pair);
                         previous_token_id = next_token_id;

@@ -31,8 +31,8 @@ private:
     std::vector<size_t> string_boundaries;      // End positions for each string
 
     // Dictionary storage
-    std::vector<uint8_t> dictionary_data;       // Raw token data
-    std::vector<uint32_t> dictionary_offsets;   // Token end positions in dictionary
+    std::vector<uint8_t> dictionary;       // Raw token data
+    std::vector<uint32_t> token_boundaries;   // Token end positions in dictionary
 
 public:
     /**
@@ -108,13 +108,6 @@ public:
      * @return Total memory usage in bytes
      */
     size_t space_used() const;
-
-    /**
-     * @brief Get the algorithm name
-     * 
-     * @return "OnPair16"
-     */
-    const char* name() const;
 
 private:
     /**
