@@ -71,6 +71,13 @@ size_t OnPair::space_used() const {
            token_boundaries.size() * sizeof(uint32_t);
 }
 
+void OnPair::shrink_to_fit() {
+    compressed_data.shrink_to_fit();
+    string_boundaries.shrink_to_fit();
+    dictionary.shrink_to_fit();
+    token_boundaries.shrink_to_fit();
+}
+
 LongestPrefixMatcher<uint16_t> OnPair::train_dictionary(const uint8_t* data, const std::vector<size_t>& end_positions) {
     token_boundaries.push_back(0);
     

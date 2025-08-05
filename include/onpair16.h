@@ -109,6 +109,15 @@ public:
      */
     size_t space_used() const;
 
+    /**
+     * @brief Shrinks all internal buffers to fit their current contents
+     * 
+     * Reduces the capacity of all internal vectors to match their current size,
+     * potentially freeing unused memory. This is useful after compression
+     * is complete to minimize memory usage.
+     */
+    void shrink_to_fit();
+
 private:
     /**
      * @brief Flattens a collection of strings into a single byte array with boundary positions
