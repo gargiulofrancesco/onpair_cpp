@@ -1,0 +1,17 @@
+# Compiled object files
+*.o
+
+# Executables
+*.out
+
+# CMake-generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Visual Studio Code workspace
+.vscode/
+
+# Build directories
+build/
