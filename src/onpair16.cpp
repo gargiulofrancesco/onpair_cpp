@@ -60,7 +60,7 @@ size_t OnPair16::decompress_all(uint8_t* buffer) const {
 size_t OnPair16::space_used() const {
     return compressed_data.size() * sizeof(uint16_t) + 
            dictionary.size() + 
-           token_boundaries.size() * sizeof(uint32_t) +
+           token_boundaries.size() * sizeof(uint32_t);
 }
 
 LongestPrefixMatcher16 OnPair16::train_dictionary(const uint8_t* data, const std::vector<size_t>& end_positions) {
