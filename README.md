@@ -56,7 +56,8 @@ git clone https://github.com/gargiulofrancesco/onpair_cpp.git
 cd onpair_cpp
 mkdir build && cd build
 cmake ..
-make
+# Build with release optimizations
+cmake --build . --config Release
 ```
 
 ## License
