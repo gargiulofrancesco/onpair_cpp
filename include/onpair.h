@@ -85,8 +85,15 @@ public:
     /**
      * @brief Decompress a specific string by index
      * 
+     * @warning BUFFER SAFETY REQUIREMENT: This method uses optimized memory operations
+     * that initially copy 16 bytes for each token regardless of the actual token length,
+     * then copy any remaining bytes if the token is longer than 16 bytes.
+     * **The buffer must have sufficient space beyond the actual decompressed data to
+     * accommodate the initial 16-byte copy for the last token, or undefined behavior
+     * will occur.**
+     * 
      * @param index Index of the string to decompress
-     * @param buffer Buffer to store the decompressed string
+     * @param buffer Buffer to store the decompressed string (must be large enough + 16 bytes padding)
      * @return Size of the decompressed data in bytes
      */
     size_t decompress_string(size_t index, uint8_t* buffer) const;
@@ -94,7 +101,14 @@ public:
     /**
      * @brief Decompress all strings
      * 
-     * @param buffer Buffer to store all decompressed strings concatenated
+     * @warning BUFFER SAFETY REQUIREMENT: This method uses optimized memory operations
+     * that initially copy 16 bytes for each token regardless of the actual token length,
+     * then copy any remaining bytes if the token is longer than 16 bytes.
+     * **The buffer must have sufficient space beyond the actual decompressed data to
+     * accommodate the initial 16-byte copy for the last token, or undefined behavior
+     * will occur.**
+     * 
+     * @param buffer Buffer to store all decompressed strings concatenated (must be large enough + 16 bytes padding)
      * @return Total size of decompressed data in bytes
      */
     size_t decompress_all(uint8_t* buffer) const;
