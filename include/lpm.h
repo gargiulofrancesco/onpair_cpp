@@ -44,8 +44,9 @@ private:
         0xFFFFFFFFFFFFFFFFULL  // 8 bytes
     };
 
-    // Threshold for switching from direct lookup to bucketed approach
-    static constexpr size_t MIN_MATCH = 8;
+    // Length of the prefix used for bucketing long patterns; 
+    // also serves as the maximum length for short pattern direct lookups
+    static constexpr size_t BUCKET_PREFIX_LEN = 8;
 
     robin_hood::unordered_map<std::pair<uint64_t, uint8_t>, V, PairHash> short_match_lookup;
     robin_hood::unordered_map<uint64_t, std::vector<V>> long_match_buckets;
@@ -80,9 +81,9 @@ public:
      * @param id Token ID to associate with this pattern
      */
     inline void insert(const uint8_t* data, size_t length, V id) {
-        if (length > MIN_MATCH) {
-            uint64_t prefix = bytes_to_u64_le(data, MIN_MATCH);
-            dictionary.insert(dictionary.end(), data + MIN_MATCH, data + length);
+        if (length > BUCKET_PREFIX_LEN) {
+            uint64_t prefix = bytes_to_u64_le(data, BUCKET_PREFIX_LEN);
+            dictionary.insert(dictionary.end(), data + BUCKET_PREFIX_LEN, data + length);
             end_positions.push_back(static_cast<uint32_t>(dictionary.size()));
 
             auto& bucket = long_match_buckets[prefix];
@@ -115,8 +116,8 @@ public:
      */
     std::optional<std::pair<V, size_t>> find_longest_match(const uint8_t* data, size_t length) const {
         // Phase 1: Long pattern search (>8 bytes) - check longest matches first
-        if (length > MIN_MATCH) {
-            uint64_t prefix = bytes_to_u64_le(data, MIN_MATCH);
+        if (length > BUCKET_PREFIX_LEN) {
+            uint64_t prefix = bytes_to_u64_le(data, BUCKET_PREFIX_LEN);
             auto it = long_match_buckets.find(prefix);
             if (it != long_match_buckets.end()) {
                 for (auto id : it->second) {
@@ -124,16 +125,16 @@ public:
                     uint32_t end = end_positions[id + 1];
                     size_t suffix_len = end - start;
 
-                    if (length >= MIN_MATCH + suffix_len &&
-                        std::memcmp(data + MIN_MATCH, &dictionary[start], suffix_len) == 0) {
-                        return std::make_pair(id, MIN_MATCH + suffix_len);
+                    if (length >= BUCKET_PREFIX_LEN + suffix_len &&
+                        std::memcmp(data + BUCKET_PREFIX_LEN, &dictionary[start], suffix_len) == 0) {
+                        return std::make_pair(id, BUCKET_PREFIX_LEN + suffix_len);
                     }
                 }
             }
         }
 
         // Phase 2: Short pattern search (≤8 bytes) - longest to shortest
-        for (size_t len = std::min(length, size_t{MIN_MATCH}); len > 0; --len) {
+        for (size_t len = std::min(length, size_t{BUCKET_PREFIX_LEN}); len > 0; --len) {
             uint64_t prefix = bytes_to_u64_le(data, len);
             auto it = short_match_lookup.find(std::make_pair(prefix, static_cast<uint8_t>(len)));
             if (it != short_match_lookup.end()) {

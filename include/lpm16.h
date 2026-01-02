@@ -38,6 +38,10 @@ private:
         0xFFFFFFFFFFFFFFFFULL  // 8 bytes
     };
 
+    // Length of the prefix used for bucketing long patterns; 
+    // also serves as the maximum length for short pattern direct lookups
+    static constexpr size_t BUCKET_PREFIX_LEN = 8;
+
     // Maximum entries per bucket
     static constexpr size_t MAX_BUCKET_SIZE = 128;
 
@@ -80,20 +84,20 @@ public:
      * @return true if insertion succeeded, false if bucket was full
      */
     inline bool insert(const uint8_t* data, size_t length, uint16_t id) {
-        if (length <= 8) {
+        if (length <= BUCKET_PREFIX_LEN) {
             uint64_t value = bytes_to_u64_le(data, length);
             dictionary.emplace(std::make_pair(value, static_cast<uint8_t>(length)), id);
             return true;
         } else {
-            uint64_t prefix = bytes_to_u64_le(data, 8);
+            uint64_t prefix = bytes_to_u64_le(data, BUCKET_PREFIX_LEN);
             auto& bucket = buckets[prefix];
 
             if (bucket.size() >= MAX_BUCKET_SIZE) {
                 return false;
             }
 
-            size_t suffix_len = length - 8;
-            uint64_t suffix = bytes_to_u64_le(data + 8, suffix_len);
+            size_t suffix_len = length - BUCKET_PREFIX_LEN;
+            uint64_t suffix = bytes_to_u64_le(data + BUCKET_PREFIX_LEN, suffix_len);
             
             bucket.emplace_back(suffix, static_cast<uint8_t>(suffix_len), id);
             
@@ -123,10 +127,10 @@ public:
      */
     inline std::optional<std::pair<uint16_t, size_t>> find_longest_match(const uint8_t* data, size_t length) const {
         // Long match handling
-        if (length > 8) {
-            size_t suffix_len = std::min(length, size_t{16}) - 8;
-            uint64_t prefix = bytes_to_u64_le(data, 8);
-            uint64_t suffix = bytes_to_u64_le(data + 8, suffix_len);
+        if (length > BUCKET_PREFIX_LEN) {
+            size_t suffix_len = std::min(length, size_t{16}) - BUCKET_PREFIX_LEN;
+            uint64_t prefix = bytes_to_u64_le(data, BUCKET_PREFIX_LEN);
+            uint64_t suffix = bytes_to_u64_le(data + BUCKET_PREFIX_LEN, suffix_len);
 
             auto bucket_it = buckets.find(prefix);
             if (bucket_it != buckets.end()) {
@@ -134,15 +138,15 @@ public:
                 for (const auto& entry : bucket) {
                     const auto& [entry_suffix, entry_suffix_len, entry_id] = entry;
                     if (is_prefix(suffix, entry_suffix, suffix_len, entry_suffix_len)) {
-                        return std::make_pair(entry_id, 8 + entry_suffix_len);
+                        return std::make_pair(entry_id, BUCKET_PREFIX_LEN + entry_suffix_len);
                     }
                 }
             }
         }
         
         // Short match handling
-        uint64_t prefix = bytes_to_u64_le(data, 8);
-        for (size_t len = std::min(length, size_t{8}); len > 0; --len) {
+        uint64_t prefix = bytes_to_u64_le(data, BUCKET_PREFIX_LEN);
+        for (size_t len = std::min(length, BUCKET_PREFIX_LEN); len > 0; --len) {
             prefix &= MASKS[len];
             auto it = dictionary.find(std::make_pair(prefix, static_cast<uint8_t>(len)));
             if (it != dictionary.end()) {
