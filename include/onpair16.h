@@ -13,6 +13,7 @@
 #include <cstring>
 #include <robin_hood.h>
 #include "lpm16.h"
+#include <cassert>
 
 /**
  * @brief OnPair16 string compression algorithm
@@ -26,6 +27,9 @@ private:
     // Maximum token length constraint for optimization
     static constexpr size_t MAX_LENGTH = 16;
 
+    // Frequency threshold for merging token pairs
+    size_t threshold;
+
     // Compressed data storage
     std::vector<uint16_t> compressed_data;      // Sequence of token IDs
     std::vector<size_t> string_boundaries;      // End positions for each string
@@ -38,18 +42,21 @@ public:
     /**
      * @brief Default constructor with no pre-allocation
      * 
+     * @param threshold Frequency threshold for merging token pairs 
+     *
      * Creates an OnPair16 compressor with empty vectors. Memory will be allocated
      * dynamically as needed during compression.
      */
-    OnPair16() = default;
+    OnPair16(size_t threshold);
 
     /**
      * @brief Construct a new OnPair16 compressor
      * 
      * @param num_strings Expected number of strings (for capacity optimization)
      * @param total_bytes Expected total size of all strings in bytes
+     * @param threshold Frequency threshold for merging token pairs
      */
-    OnPair16(size_t num_strings, size_t total_bytes);
+    OnPair16(size_t num_strings, size_t total_bytes, size_t threshold);
     
     /**
      * @brief Destroy the OnPair16 compressor

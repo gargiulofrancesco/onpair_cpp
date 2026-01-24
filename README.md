@@ -31,8 +31,11 @@ int main() {
         "user_000004",
     };
 
+    // Select a threshold for merging token pairs
+    size_t threshold = 5;
+
     // Create compressor
-    OnPair compressor;
+    OnPair compressor(threshold);
     
     // Compress strings
     compressor.compress_strings(strings);

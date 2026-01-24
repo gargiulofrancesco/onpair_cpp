@@ -13,6 +13,7 @@
 #include <cstring>
 #include <robin_hood.h>
 #include "lpm.h"
+#include <cassert>
 
 /**
  * @brief OnPair string compression algorithm
@@ -22,6 +23,9 @@
 class OnPair {
 private:
     static constexpr size_t FAST_COPY_SIZE = 16;
+
+    // Frequency threshold for merging token pairs
+    size_t threshold;
 
     // Compressed data storage
     std::vector<uint16_t> compressed_data;      // Sequence of token IDs
@@ -34,19 +38,22 @@ private:
 public:
     /**
      * @brief Default constructor with no pre-allocation
-     * 
+     *
+     * @param threshold Frequency threshold for merging token pairs 
+     *
      * Creates an OnPair compressor with empty vectors. Memory will be allocated
      * dynamically as needed during compression.
      */
-    OnPair() = default;
+    OnPair(size_t threshold);
 
     /**
      * @brief Construct a new OnPair compressor
      * 
      * @param num_strings Expected number of strings (for capacity optimization)
      * @param total_bytes Expected total size of all strings in bytes
+     * @param threshold Frequency threshold for merging token pairs
      */
-    OnPair(size_t num_strings, size_t total_bytes);
+    OnPair(size_t num_strings, size_t total_bytes, size_t threshold);
     
     /**
      * @brief Destroy the OnPair compressor

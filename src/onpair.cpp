@@ -1,6 +1,12 @@
 #include "onpair.h"
 
-OnPair::OnPair(size_t num_strings, size_t total_bytes) {
+OnPair::OnPair(size_t threshold) : threshold(threshold) {
+    assert(threshold > 1 && "Threshold must be greater than 1");
+}
+
+OnPair::OnPair(size_t num_strings, size_t total_bytes, size_t threshold)
+    : OnPair(threshold)
+{    
     compressed_data.reserve(total_bytes);
     string_boundaries.reserve(num_strings + 1);
     dictionary.reserve(1024 * 1024);
@@ -95,17 +101,11 @@ LongestPrefixMatcher<uint16_t> OnPair::train_dictionary(const uint8_t* data, con
     }
 
     // Shuffle entries
-    std::vector<int> shuffled_indices;
-    for (int i=0; i<end_positions.size()-1; i++) {
-        shuffled_indices.push_back(i);
-    }
+    std::vector<int> shuffled_indices(end_positions.size() - 1);
+    std::iota(shuffled_indices.begin(), shuffled_indices.end(), 0);
     std::random_device rd;
     std::mt19937 g(rd());
     std::shuffle(shuffled_indices.begin(), shuffled_indices.end(), g);
-
-    // Set the threshold for merging tokens
-    double data_size_mib = static_cast<double>(end_positions.back()) / (1024.0 * 1024.0);
-    size_t threshold = static_cast<size_t>(std::fmax(std::log2(data_size_mib), 2.0));
 
     // Iterate over entries
     for(auto index : shuffled_indices){ 

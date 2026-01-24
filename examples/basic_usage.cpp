@@ -25,7 +25,8 @@ int main() {
         total_bytes += s.size();
     }
 
-    OnPair16 compressor(n_strings, total_bytes);
+    size_t threshold = 5; // Frequency threshold for merging token pairs
+    OnPair16 compressor(n_strings, total_bytes, threshold);
     compressor.compress_strings(strings);
     
     // Test decompression
