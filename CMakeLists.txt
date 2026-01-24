@@ -26,6 +26,7 @@ set(PROJECT_INCLUDE_DIRS
 set(ONPAIR_SOURCES
     src/onpair.cpp
     src/onpair16.cpp
+    src/onpair_mini.cpp
 )
 
 add_library(onpair STATIC ${ONPAIR_SOURCES})
