@@ -15,3 +15,7 @@ Makefile
 
 # Build directories
 build/
+build_*/
+
+# macOS metadata
+.DS_Store
