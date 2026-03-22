@@ -93,7 +93,7 @@ TEST(AhoCorasickTest, EmptyPatternSetMatchesNone) {
     std::vector<std::string> data = {"abc", "def"};
     auto col = make_column(data);
 
-    // No patterns → no string can match (SQL semantics: zero OR-conditions = FALSE).
+    // No patterns → no string can match.
     std::vector<std::string_view> patterns;
     auto result = contains_any(col, patterns);
     EXPECT_EQ(result.size(), 0u);

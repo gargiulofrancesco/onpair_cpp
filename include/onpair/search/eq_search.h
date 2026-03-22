@@ -19,9 +19,8 @@ namespace onpair::search {
 // Algorithm:
 //   1. Tokenize the query value by greedy longest-match against the sorted
 //      dictionary.
-//   2. For each string: fast O(1) rejection if the token count differs;
-//      then O(query_tokens) token-by-token equality check with early exit on
-//      the first mismatch.
+//   2. For each string: fast rejection if the token count differs; then 
+//      token-by-token equality check with early exit on the first mismatch.
 
 class EQSearch {
 public:

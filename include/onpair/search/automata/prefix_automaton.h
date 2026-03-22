@@ -14,16 +14,12 @@ namespace onpair::search {
 // ─────────────────────────────────────────────────────────────────────────────
 // Token-level automaton for prefix search (SQL `WHERE col LIKE 'prefix%'`).
 //
-// Translates PrefixSearch into the TokenAutomaton interface so that it can be
-// composed with other automata via combinators (&&, ||, !).
-//
 // Algorithm:
-//   1. Tokenize the prefix and precompute valid-divergence intervals (same as
-//      PrefixSearch).
+//   1. Tokenize the prefix and precompute valid-divergence intervals.
 //   2. step(): compare each incoming token against the query sequence.
 //      - Exact match at position i → advance.
 //      - Mismatch at position i → check if token falls in the precomputed
-//        interval [lb, ub) for that position (valid divergence → accept).
+//        interval [lb, ub] for that position (valid divergence → accept).
 //      - All query tokens consumed → accept (remaining tokens are irrelevant).
 //
 // DeadDetectable: is_dead() returns true as soon as the automaton reaches a

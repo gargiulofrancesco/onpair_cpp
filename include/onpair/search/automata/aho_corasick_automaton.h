@@ -46,22 +46,20 @@ public:
             for (; r != end; ++r) {
                 if (t < r->range.begin) break;
                 if (t <= r->range.last) {
-                    if (r->packed & HIT) { hit_ = true; return; }
-                    state_ = r->packed;
+                    hit_   = packed_is_hit(r->packed);
+                    state_ = packed_state (r->packed);
                     return;
                 }
             }
         }
         uint16_t p = base_[t];
-        if (p & HIT) hit_ = true;
-        else state_ = p;
+        hit_   = packed_is_hit(p);
+        state_ = packed_state (p);
     }
 
     bool is_accepted() const noexcept { return hit_; }
     void reset()       noexcept       { state_ = 0; hit_ = all_match_; }
-    // is_dead() returns true once any pattern has been found.  The scan loop
-    // exits immediately — no accepting state can be "un-found", so further
-    // tokens are irrelevant.
+    // is_dead() returns true once any pattern has been found.
     bool is_dead()     const noexcept { return hit_; }
 
     // ── Accessors ───────────────────────────────────────────────────────────
@@ -70,7 +68,12 @@ public:
     size_t sparse_range_count() const noexcept { return sparse_.size(); }
 
 private:
-    static constexpr uint16_t HIT = 0x8000;
+    static constexpr uint16_t HIT        = 0x8000;
+    static constexpr uint16_t STATE_MASK = static_cast<uint16_t>(~HIT);
+    static constexpr uint16_t NO_CHILD   = 0xFFFF;  // sentinel: no trie edge
+
+    static constexpr bool     packed_is_hit(uint16_t p) noexcept { return p & HIT; }
+    static constexpr uint16_t packed_state (uint16_t p) noexcept { return p & STATE_MASK; }
 
     // Sparse transition: tokens in [range.begin, range.last] map to `packed`.
     struct SparseTransition {
@@ -104,9 +107,16 @@ inline AhoCorasickAutomaton::AhoCorasickAutomaton(
     const size_t num_tokens = dict.num_tokens();
 
     // ── 1. Build trie ───────────────────────────────────────────────────────
-    std::vector<std::array<int32_t, 256>> trie(1);
-    trie[0].fill(-1);
+    std::vector<std::vector<std::pair<uint8_t, uint16_t>>> children(1);
     std::vector<bool> is_accepting(1, false);
+
+    // Returns the direct trie child of u for byte c, or NO_CHILD if none.
+    auto find_child = [](const std::vector<std::pair<uint8_t, uint16_t>>& ch,
+                         uint8_t c) -> uint16_t {
+        for (auto& [k, v] : ch)
+            if (k == c) return v;
+        return NO_CHILD;
+    };
 
     for (const auto& pat : patterns) {
         if (pat.empty()) {
@@ -114,69 +124,61 @@ inline AhoCorasickAutomaton::AhoCorasickAutomaton(
             continue;
         }
         const auto* p = reinterpret_cast<const uint8_t*>(pat.data());
-        int32_t cur = 0;
+        uint16_t cur = 0;
         for (size_t i = 0; i < pat.size(); ++i) {
-            if (trie[cur][p[i]] == -1) {
-                trie[cur][p[i]] = static_cast<int32_t>(trie.size());
-                trie.emplace_back();
-                trie.back().fill(-1);
+            uint16_t next = find_child(children[cur], p[i]);
+            if (next == NO_CHILD) {
+                next = static_cast<uint16_t>(children.size());
+                children[cur].emplace_back(p[i], next);
+                children.emplace_back();
                 is_accepting.push_back(false);
             }
-            cur = trie[cur][p[i]];
+            cur = next;
         }
         is_accepting[cur] = true;
     }
 
-    const size_t num_states = trie.size();
+    const size_t num_states = children.size();
     num_ac_states_ = num_states;
 
     all_match_ = is_accepting[0];
     hit_ = all_match_;
 
-    // ── 2. Build full DFA via BFS (failure links + goto merging) ────────────
-    std::vector<std::array<uint16_t, 256>> delta(num_states);
+    // ── 2. Compute failure links via BFS ────────────────────────────────────
     std::vector<uint16_t> fail(num_states, 0);
 
-    // Root transitions.
-    for (int c = 0; c < 256; ++c) {
-        int32_t child = trie[0][c];
-        delta[0][c] = (child == -1) ? 0 : static_cast<uint16_t>(child);
-    }
+    // goto_fn(u, c): complete AC transition — follows failure links until a
+    // real trie edge is found, or returns 0 (root self-loop) if none exists.
+    // O(depth) per call, depth ≤ max pattern length.
+    auto goto_fn = [&](uint16_t u, uint8_t c) -> uint16_t {
+        while (true) {
+            uint16_t v = find_child(children[u], c);
+            if (v != NO_CHILD) return v;
+            if (u == 0) return 0;
+            u = fail[u];
+        }
+    };
 
     std::queue<uint16_t> bfs;
-    for (int c = 0; c < 256; ++c) {
-        uint16_t s = delta[0][c];
-        if (s != 0) {
-            fail[s] = 0;
-            bfs.push(s);
-        }
+    for (auto& [c, child] : children[0]) {
+        fail[child] = 0;
+        bfs.push(child);
     }
-
     while (!bfs.empty()) {
         uint16_t u = bfs.front(); bfs.pop();
-
-        // Propagate accepting status through failure links.
         if (is_accepting[fail[u]])
-            is_accepting[u] = true;
-
-        for (int c = 0; c < 256; ++c) {
-            int32_t child = trie[u][c];
-            if (child == -1) {
-                delta[u][c] = delta[fail[u]][c];
-            } else {
-                uint16_t v = static_cast<uint16_t>(child);
-                fail[v] = delta[fail[u]][c];
-                delta[u][c] = v;
-                bfs.push(v);
-            }
+            is_accepting[u] = true;  // propagate accepting through suffix links
+        for (auto& [c, child] : children[u]) {
+            fail[child] = goto_fn(fail[u], c);
+            bfs.push(child);
         }
     }
 
     // ── 3. Helper: evolve a packed state through one byte ───────────────────
     // Packed format: bit 15 = hit (absorbing), bits 0-14 = AC state.
     auto evolve = [&](uint16_t packed, uint8_t c) -> uint16_t {
-        if (packed & HIT) return HIT;
-        uint16_t next = delta[packed][c];
+        if (packed_is_hit(packed)) return HIT;
+        uint16_t next = goto_fn(packed_state(packed), c);
         return is_accepting[next] ? HIT : next;
     };
 
@@ -185,7 +187,7 @@ inline AhoCorasickAutomaton::AhoCorasickAutomaton(
                       size_t len) -> uint16_t {
         uint16_t state = start_state;
         for (size_t i = 0; i < len; ++i) {
-            state = delta[state][data[i]];
+            state = goto_fn(state, data[i]);
             if (is_accepting[state]) return HIT;
         }
         return state;
@@ -275,15 +277,34 @@ inline AhoCorasickAutomaton::AhoCorasickAutomaton(
         }
     };
 
+    std::vector<uint8_t> relevant_chars;
+
     for (size_t j = 1; j < num_states; ++j) {
         range_start = sparse_.size();
         offsets_[j] = static_cast<uint32_t>(range_start);
 
-        // Find divergent first bytes and traverse via prefix_range.
-        for (int c = 0; c < 256; ++c) {
-            if (delta[j][c] == delta[0][c]) continue;
+        // Collect byte labels of trie children along the failure chain from j
+        // (excluding root). These are the only bytes where goto_fn(j, c) can
+        // differ from goto_fn(0, c): any other byte falls through to the root
+        // in both cases and returns the same result.
+        relevant_chars.clear();
+        {
+            uint16_t u = static_cast<uint16_t>(j);
+            while (u > 0) {
+                for (auto& [c, _] : children[u])
+                    relevant_chars.push_back(c);
+                u = fail[u];
+            }
+        }
 
-            const auto byte = static_cast<uint8_t>(c);
+        // Deduplicate.
+        std::sort(relevant_chars.begin(), relevant_chars.end());
+        relevant_chars.erase(
+            std::unique(relevant_chars.begin(), relevant_chars.end()),
+            relevant_chars.end());
+
+        for (uint8_t byte : relevant_chars) {
+            if (goto_fn(static_cast<uint16_t>(j), byte) == goto_fn(0, byte)) continue;
             TokenRange range = dict.prefix_range(&byte, 1);
             if (range.empty()) continue;
 

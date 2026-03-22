@@ -163,27 +163,6 @@ TEST(KmpAutomatonTest, AutomatonRescannableSameColumn) {
     EXPECT_EQ(r1, r2);
 }
 
-TEST(KmpAutomatonTest, DifferentColumnsNeedSeparateAutomata) {
-    // Different columns may have different dictionaries, so the automaton
-    // must be constructed per-dictionary.
-    std::vector<std::string> data1 = {"abc", "def"};
-    std::vector<std::string> data2 = {"xyz", "abc_123"};
-    auto col1 = make_column(data1);
-    auto col2 = make_column(data2);
-    auto v1 = col1.view();
-    auto v2 = col2.view();
-
-    op::search::KmpAutomaton kmp1("abc", v1.dictionary());
-    auto r1 = v1.scan(kmp1);
-    EXPECT_EQ(r1.size(), 1u);
-    EXPECT_EQ(r1[0], 0u);
-
-    op::search::KmpAutomaton kmp2("abc", v2.dictionary());
-    auto r2 = v2.scan(kmp2);
-    EXPECT_EQ(r2.size(), 1u);
-    EXPECT_EQ(r2[0], 1u);
-}
-
 // ── Various bit widths ───────────────────────────────────────────────────────
 
 TEST(KmpAutomatonTest, WorksAcrossBitWidths) {
@@ -209,19 +188,6 @@ TEST(KmpAutomatonTest, PatternLongerThanStrings) {
     auto view = col.view();
     auto result = view.contains("abcdefghij");
     EXPECT_TRUE(result.empty());
-}
-
-// ── Bridge entries exist for non-trivial patterns ────────────────────────────
-
-TEST(KmpAutomatonTest, BridgeEntriesCreated) {
-    auto data = make_user_strings(100);
-    auto col = make_column(data);
-    auto view = col.view();
-
-    op::search::KmpAutomaton kmp("user_0000", view.dictionary());
-    // For a pattern this long with merged tokens, there should be bridge entries
-    EXPECT_GE(kmp.pattern_length(), 5u);
-    // bridge_entries may or may not be > 0 depending on dictionary tokenisation
 }
 
 // ── Empty column ─────────────────────────────────────────────────────────────

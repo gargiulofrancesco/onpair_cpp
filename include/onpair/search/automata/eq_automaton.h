@@ -13,9 +13,6 @@ namespace onpair::search {
 // ─────────────────────────────────────────────────────────────────────────────
 // Token-level automaton for exact equality (SQL `WHERE col = 'value'`).
 //
-// Translates EQSearch into the TokenAutomaton interface so that it can
-// be composed with other automata via combinators (&&, ||, !).
-//
 // Algorithm:
 //   1. Tokenize the query value against the sorted dictionary.
 //   2. step(): compare each incoming token against the query sequence.
