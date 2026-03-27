@@ -23,6 +23,10 @@ namespace onpair::search {
 //                   exit state differs from base_[t] and record them as sparse
 //                   exception ranges.   Stored as flattened vector of (range, 
 //                   target) pairs.
+//
+// Precondition: the pattern must be at most 255 bytes long, since KMP states
+// (0 … pattern_length) are stored as uint8_t.  Exceeding this limit causes
+// silent wraparound and undefined behaviour.
 
 class KmpAutomaton {
 public:

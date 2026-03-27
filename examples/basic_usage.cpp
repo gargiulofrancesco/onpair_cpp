@@ -45,20 +45,20 @@ int main() {
                   << std::string_view(buf.data(), len) << "\"\n";
     }
 
-    // ── 4. Substring search — no decompression required ───────────────────────
+    // ── 4. Substring search ───────────────────────────────────────────────────
     // view.contains() builds a KmpAutomaton internally and scans the token stream.
     std::cout << "\nSubstring search for \"admin\":\n";
     auto admin_hits = view.contains("admin");
     for (size_t idx : admin_hits)
         std::cout << "  [" << idx << "]\n";
 
-    // ── 5. Prefix search — no decompression required ────────────────────────
+    // ── 5. Prefix search ─────────────────────────────────────────────────────
     std::cout << "\nPrefix search for \"user_\":\n";
     auto user_hits = view.starts_with("user_");
     for (size_t idx : user_hits)
         std::cout << "  [" << idx << "]\n";
 
-    // ── 6. Multi-pattern search ─────────────────────────────────────────────
+    // ── 6. Multi-pattern search ──────────────────────────────────────────────
     // Build an Aho-Corasick automaton and scan.
     std::cout << "\nMulti-pattern search for {\"admin\", \"guest\"}:\n";
     std::vector<std::string_view> patterns = {"admin", "guest"};
@@ -67,7 +67,7 @@ int main() {
     for (size_t idx : multi_hits)
         std::cout << "  [" << idx << "]\n";
 
-    // ── 7. Operator-based combinators ────────────────────────────────────────
+    // ── 7. Operator-based combinators ─────────────────────────────────────────
     // Use !, &&, || directly on automata for concise boolean queries.
     onpair::search::KmpAutomaton kmp_user("user", view.dictionary());
     onpair::search::KmpAutomaton kmp_admin("admin", view.dictionary());
