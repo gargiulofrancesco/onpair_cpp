@@ -22,20 +22,21 @@ namespace onpair::search {
 class AhoCorasickTrie {
 public:
     using State = uint16_t;
+
     static constexpr State ROOT_STATE = 0;
+    static constexpr State NULL_STATE = UINT16_MAX;
 
     explicit AhoCorasickTrie(std::span<const std::string_view> patterns);
 
     // Advances by one byte, automatically resolving failure links.
     State advance(State u, uint8_t c) const noexcept {
         while (true) {
-            const uint8_t* begin = edge_labels_.data() + child_offsets_[u];
-            const uint8_t* end   = edge_labels_.data() + child_offsets_[u + 1];
+            const uint16_t start = child_offsets_[u];
+            const uint16_t end   = child_offsets_[u + 1];
 
-            for (auto it = begin; it != end; ++it) {
-                if (*it == c)
-                    return edge_targets_[it - edge_labels_.data()];
-                if (*it > c) break;
+            for (uint16_t i = start; i < end; ++i) {
+                if (edge_labels_[i] == c) return edge_targets_[i];
+                if (edge_labels_[i] > c) break;
             }
 
             if (u == ROOT_STATE) return ROOT_STATE;
@@ -79,8 +80,8 @@ inline AhoCorasickTrie::AhoCorasickTrie(std::span<const std::string_view> patter
     // Temporary structure: First-Child / Next-Sibling
     struct TrieNode {
         uint8_t c = 0;
-        State   first_child  = UINT16_MAX;
-        State   next_sibling = UINT16_MAX;
+        State   first_child  = NULL_STATE;
+        State   next_sibling = NULL_STATE;
     };
 
     std::vector<TrieNode> nodes(1); // nodes[0] is ROOT_STATE
@@ -98,24 +99,24 @@ inline AhoCorasickTrie::AhoCorasickTrie(std::span<const std::string_view> patter
         
         for (size_t i = 0; i < pat.size(); ++i) {
             State child = nodes[cur].first_child;
-            State prev  = UINT16_MAX;
+            State prev  = NULL_STATE;
             
             // Traverse the sibling list, stopping if we find the byte or 
             // pass where it should be
-            while (child != UINT16_MAX && nodes[child].c < p[i]) {
+            while (child != NULL_STATE && nodes[child].c < p[i]) {
                 prev  = child;
                 child = nodes[child].next_sibling;
             }
 
             // If the branch doesn't exist, insert it maintaining sorted order
-            if (child == UINT16_MAX || nodes[child].c != p[i]) {
+            if (child == NULL_STATE || nodes[child].c != p[i]) {
                 State new_node = static_cast<State>(nodes.size());
                 
                 // next_sibling points to 'child' to maintain alphabetical order
-                nodes.push_back({p[i], UINT16_MAX, child}); 
+                nodes.push_back({p[i], NULL_STATE, child}); 
                 is_accepting_.push_back(false);
                 
-                if (prev == UINT16_MAX) {
+                if (prev == NULL_STATE) {
                     nodes[cur].first_child = new_node;
                 } else {
                     nodes[prev].next_sibling = new_node;
@@ -140,7 +141,7 @@ inline AhoCorasickTrie::AhoCorasickTrie(std::span<const std::string_view> patter
         // Edges are already sorted by label due to the insertion method, 
         // so we can just append them
         State child = nodes[i].first_child;
-        while (child != UINT16_MAX) {
+        while (child != NULL_STATE) {
             edge_labels_.push_back(nodes[child].c);
             edge_targets_.push_back(child);
             child = nodes[child].next_sibling;
