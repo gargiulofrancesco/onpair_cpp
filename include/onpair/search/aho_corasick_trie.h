@@ -46,7 +46,7 @@ public:
 
     // Accessors
     bool   is_accepting(State s) const noexcept { return is_accepting_[s]; }
-    size_t num_states()       const noexcept { return num_states_; }
+    size_t num_states()          const noexcept { return num_states_; }
     size_t num_patterns()        const noexcept { return num_patterns_; }
 
     std::span<const uint8_t> edge_labels(State state) const noexcept {
