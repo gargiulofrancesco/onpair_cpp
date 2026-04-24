@@ -146,7 +146,7 @@ TEST(AhoCorasickOnlineTest, GenericScanApi) {
 
 TEST(AhoCorasickOnlineTest, WorksAcrossBitWidths) {
     std::vector<std::string> data = {"error log", "warning log", "info log"};
-    for (int b : {12, 13, 14, 15, 16}) {
+    for (int b : {9, 10, 11, 12, 13, 14, 15, 16}) {
         op::encoding::TrainingConfig cfg;
         cfg.bits = static_cast<op::BitWidth>(b);
         cfg.seed = 42;
@@ -233,7 +233,7 @@ TEST(AhoCorasickOnlineTest, MatchesEagerAcrossBitWidths) {
     std::vector<std::string> data = make_random_strings(100, 30, 9999);
     std::vector<std::string_view> patterns = {"the", "and", "for"};
 
-    for (int b : {12, 13, 14, 15, 16}) {
+    for (int b : {9, 10, 11, 12, 13, 14, 15, 16}) {
         op::encoding::TrainingConfig cfg;
         cfg.bits = static_cast<op::BitWidth>(b);
         cfg.seed = 42;

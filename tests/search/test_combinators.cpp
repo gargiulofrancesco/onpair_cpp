@@ -339,7 +339,7 @@ TEST(Combinators, AndAcrossBitWidths) {
     std::vector<std::string> data = {
         "user_admin_001", "user_001", "admin_001", "guest_001"
     };
-    for (int b : {12, 13, 14, 15, 16}) {
+    for (int b : {9, 10, 11, 12, 13, 14, 15, 16}) {
         op::encoding::TrainingConfig cfg;
         cfg.bits = static_cast<op::BitWidth>(b);
         cfg.seed = 42;

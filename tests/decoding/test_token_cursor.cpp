@@ -67,7 +67,7 @@ static int first_straddle_index(int bits)
 template<int B>
 using BW = std::integral_constant<int, B>;
 
-using AllBitWidths = testing::Types<BW<12>, BW<13>, BW<14>, BW<15>, BW<16>>;
+using AllBitWidths = testing::Types<BW<9>, BW<10>, BW<11>, BW<12>, BW<13>, BW<14>, BW<15>, BW<16>>;
 
 template<typename T>
 class TokenCursorTypedTest : public testing::Test {

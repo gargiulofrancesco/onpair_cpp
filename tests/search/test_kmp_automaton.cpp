@@ -167,7 +167,7 @@ TEST(KmpAutomatonTest, AutomatonRescannableSameColumn) {
 
 TEST(KmpAutomatonTest, WorksAcrossBitWidths) {
     std::vector<std::string> data = {"the quick brown fox", "lazy dog", "quick fox"};
-    for (int b : {12, 13, 14, 15, 16}) {
+    for (int b : {9, 10, 11, 12, 13, 14, 15, 16}) {
         op::encoding::TrainingConfig cfg;
         cfg.bits = static_cast<op::BitWidth>(b);
         cfg.seed = 42;

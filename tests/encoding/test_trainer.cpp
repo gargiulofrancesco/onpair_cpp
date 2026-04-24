@@ -325,7 +325,7 @@ TEST(TrainerTest, MixedLengthCorpusProducesValidDictionary) {
 
 TEST(TrainerTest, AllBitWidthsProduceValidDictionary) {
     auto corpus = make_user_strings(50);
-    for (int b : {12, 13, 14, 15, 16}) {
+    for (int b : {9, 10, 11, 12, 13, 14, 15, 16}) {
         TrainingConfig cfg;
         cfg.bits = static_cast<BitWidth>(b);
         cfg.seed = 42;

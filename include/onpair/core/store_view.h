@@ -16,7 +16,7 @@ class StoreView {
 public:
     /* implicit */ StoreView(const Store& s) noexcept : store_(s) {}
 
-    BitWidth bits()       const noexcept { return store_.bit_width; }  // 12–16
+    BitWidth bits()       const noexcept { return store_.bit_width; }  // 9–16
     size_t num_strings()  const noexcept { return store_.num_strings(); }
     size_t num_tokens()   const noexcept { return store_.num_tokens(); }
     size_t bytes_used()   const noexcept { return store_.bytes_used(); }

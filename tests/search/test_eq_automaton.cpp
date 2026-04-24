@@ -156,7 +156,7 @@ TEST(EqAutomatonTest, ConsistencyWithBruteForce) {
 
 TEST(EqAutomatonTest, WorksAcrossBitWidths) {
     std::vector<std::string> data = {"abc", "def", "abc", "ghi"};
-    for (int b : {12, 13, 14, 15, 16}) {
+    for (int b : {9, 10, 11, 12, 13, 14, 15, 16}) {
         auto col = make_column(data, static_cast<op::BitWidth>(b));
         auto v = col.view();
         search::EqAutomaton eq("abc", v.dictionary());

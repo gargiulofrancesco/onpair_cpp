@@ -98,7 +98,7 @@ static std::vector<std::vector<Token>> tokenize_base(
 
 class DecodeAllOffsetsTest : public testing::TestWithParam<int> {};
 INSTANTIATE_TEST_SUITE_P(AllBitWidths, DecodeAllOffsetsTest,
-    testing::Values(12, 13, 14, 15, 16),
+    testing::Values(9, 10, 11, 12, 13, 14, 15, 16),
     [](const auto& info) { return "bits" + std::to_string(info.param); });
 
 // ── 1. Single-string smoke tests ──────────────────────────────────────────────
@@ -422,7 +422,7 @@ TEST_P(DecodeAllOffsetsTest, LargeCorpusWithInterspersedEmpties) {
 
 class DecodeAllOffsetsIntegrationTest : public testing::TestWithParam<int> {};
 INSTANTIATE_TEST_SUITE_P(AllBitWidths, DecodeAllOffsetsIntegrationTest,
-    testing::Values(12, 13, 14, 15, 16),
+    testing::Values(9, 10, 11, 12, 13, 14, 15, 16),
     [](const auto& info) { return "bits" + std::to_string(info.param); });
 
 static OnPairColumn compress_at(const std::vector<std::string>& strings, int bits)

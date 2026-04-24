@@ -169,7 +169,7 @@ TEST(PrefixAutomatonTest, WorksAcrossBitWidths) {
     std::vector<std::string> data = {
         "user_001", "admin_001", "user_002", "user_003"
     };
-    for (int b : {12, 13, 14, 15, 16}) {
+    for (int b : {9, 10, 11, 12, 13, 14, 15, 16}) {
         auto col = make_column(data, static_cast<op::BitWidth>(b));
         auto v = col.view();
         search::PrefixAutomaton pa("user_", v.dictionary());

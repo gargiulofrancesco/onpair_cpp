@@ -58,7 +58,7 @@ class RoundTripTest : public testing::TestWithParam<RoundTripParams> {};
 
 static std::vector<RoundTripParams> make_params() {
     std::vector<RoundTripParams> out;
-    for (int b : {12, 13, 14, 15, 16}) {
+    for (int b : {9, 10, 11, 12, 13, 14, 15, 16}) {
         auto bw = static_cast<op::BitWidth>(b);
         out.push_back({bw, op::encoding::DynamicThreshold{0.15},
                        "bits" + std::to_string(b) + "_dynamic"});

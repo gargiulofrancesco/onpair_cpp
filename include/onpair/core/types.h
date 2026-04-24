@@ -5,7 +5,7 @@
 
 namespace onpair {
 
-using BitWidth = uint8_t;   // Legal values: 12–16
+using BitWidth = uint8_t;   // Legal values: 9–16
 using Token    = uint16_t;
 
 // Maximum byte size of any token.
@@ -31,7 +31,7 @@ struct TokenRange {
 };
 
 constexpr size_t max_dict_size(BitWidth bits) noexcept { return size_t(1) << bits; }
-constexpr bool   is_valid_bits(BitWidth b)    noexcept { return b >= 12 && b <= 16; }
+constexpr bool   is_valid_bits(BitWidth b)    noexcept { return b >= 9 && b <= 16; }
 
 // Resolve a runtime BitWidth to a compile-time constant and invoke `fn`.
 // `fn` receives a std::integral_constant<BitWidth, N> whose ::value is usable
@@ -39,6 +39,9 @@ constexpr bool   is_valid_bits(BitWidth b)    noexcept { return b >= 12 && b <= 
 template<typename F>
 decltype(auto) dispatch_bits(BitWidth bw, F&& fn) {
     switch (bw) {
+        case 9:  return fn(std::integral_constant<BitWidth, 9>{});
+        case 10: return fn(std::integral_constant<BitWidth, 10>{});
+        case 11: return fn(std::integral_constant<BitWidth, 11>{});
         case 12: return fn(std::integral_constant<BitWidth, 12>{});
         case 13: return fn(std::integral_constant<BitWidth, 13>{});
         case 14: return fn(std::integral_constant<BitWidth, 14>{});

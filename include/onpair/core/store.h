@@ -7,7 +7,7 @@
 //
 // Compressed strings are stored as a continuous LSB-first bit-packed stream of
 // token ids inside a vector<uint64_t>.  All tokens in the column share the same
-// fixed bit-width (12–16 bits).
+// fixed bit-width (9–16 bits).
 //
 // Per-string boundaries are recorded as token-stream indices (not byte offsets),
 // using the Arrow-style sentinel convention: boundaries has n+1 entries for n
@@ -22,7 +22,7 @@ namespace onpair {
 
 // Owns the bit-packed token stream and per-string boundaries.
 struct Store {
-    BitWidth              bit_width;        // Immutable after first write (12–16)
+    BitWidth              bit_width;        // Immutable after first write (9–16)
     std::vector<uint64_t> packed;           // LSB-first bit-packed token stream
     std::vector<uint32_t> boundaries;       // boundaries[i] = token-index start of string i
                                             // boundaries.back() = total token count

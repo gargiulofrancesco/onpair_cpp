@@ -103,7 +103,7 @@ TEST(ParserTest, ManyEmptyStringsAllBoundariesAreZero) {
 
 class ParserStructuralTest : public testing::TestWithParam<int> {};
 INSTANTIATE_TEST_SUITE_P(AllBitWidths, ParserStructuralTest,
-    testing::Values(12, 13, 14, 15, 16),
+    testing::Values(9, 10, 11, 12, 13, 14, 15, 16),
     [](const auto& info) { return "bits" + std::to_string(info.param); });
 
 TEST_P(ParserStructuralTest, BoundaryCountIsNPlusOne) {
@@ -213,7 +213,7 @@ TEST(ParserTest, TrainedLPM_ProducesMultiByteTokens) {
 
 class ParserRoundTripTest : public testing::TestWithParam<int> {};
 INSTANTIATE_TEST_SUITE_P(AllBitWidths, ParserRoundTripTest,
-    testing::Values(12, 13, 14, 15, 16),
+    testing::Values(9, 10, 11, 12, 13, 14, 15, 16),
     [](const auto& info) { return "bits" + std::to_string(info.param); });
 
 TEST_P(ParserRoundTripTest, UserStrings) {

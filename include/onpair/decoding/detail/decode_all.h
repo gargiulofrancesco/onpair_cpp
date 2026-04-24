@@ -11,6 +11,9 @@
 // group" is the smallest token count whose total bits are a multiple of 64:
 //
 //   Bits  Tokens/group  Words/group
+//     9        64            9
+//    10        32            5
+//    11        64           11
 //    12        16            3
 //    13        64           13
 //    14        32            7
@@ -26,6 +29,9 @@ namespace detail {
 
 /// Natural group metrics for a given bit width.
 template<BitWidth Bits> struct group_traits;
+template<> struct group_traits< 9> { static constexpr uint32_t tokens = 64, words =  9, subs = 4; };
+template<> struct group_traits<10> { static constexpr uint32_t tokens = 32, words =  5, subs = 2; };
+template<> struct group_traits<11> { static constexpr uint32_t tokens = 64, words = 11, subs = 4; };
 template<> struct group_traits<12> { static constexpr uint32_t tokens = 16, words =  3, subs = 1; };
 template<> struct group_traits<13> { static constexpr uint32_t tokens = 64, words = 13, subs = 4; };
 template<> struct group_traits<14> { static constexpr uint32_t tokens = 32, words =  7, subs = 2; };
@@ -159,7 +165,7 @@ size_t decode_all(
         return size_t(out - out_start);
     }
 
-    // ── Bit-packed paths (12–15 bit) ─────────────────────────────────────
+    // ── Bit-packed paths (9–15 bit) ──────────────────────────────────────
     // Tokens are extracted in groups tied to word boundaries.  We cannot
     // iterate per-string, so we emit all tokens in a group first (Phase 1)
     // then compute byte positions via prefix-sum (Phase 2) and resolve

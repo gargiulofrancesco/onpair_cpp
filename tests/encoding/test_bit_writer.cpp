@@ -53,7 +53,7 @@ static size_t expected_packed_words(size_t n, BitWidth bits)
 
 class BitWriterTest : public testing::TestWithParam<int> {};
 INSTANTIATE_TEST_SUITE_P(AllBitWidths, BitWriterTest,
-    testing::Values(12, 13, 14, 15, 16),
+    testing::Values(9, 10, 11, 12, 13, 14, 15, 16),
     [](const auto& info) { return "bits" + std::to_string(info.param); });
 
 // ── Degenerate inputs ─────────────────────────────────────────────────────────

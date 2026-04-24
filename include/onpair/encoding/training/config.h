@@ -30,9 +30,7 @@ using ThresholdSpec = std::variant<FixedThreshold, DynamicThreshold>;
 // ─── Training Configuration ───────────────────────────────────────────────────
 
 struct TrainingConfig {
-    // Max dictionary size = 2^bits entries.  Legal range: [12, 16].
-    // 16 → 2 bytes per token, up to 65 535 tokens.
-    // 12 → 1.5 bytes per token, up to 4 095 tokens.
+    // Max dictionary size = 2^bits entries.  Legal range: [9, 16].
     BitWidth      bits            = 16;
 
     // Merge-frequency threshold.

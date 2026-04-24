@@ -50,7 +50,12 @@ struct Dictionary {
     // Uses offsets.back() — not bytes.size() — so it is unaffected by padding.
     size_t bytes_used() const noexcept {
         const size_t true_bytes = offsets.empty() ? 0 : offsets.back();
-        return true_bytes + offsets.size() * sizeof(uint32_t);
+        // Dictionaries with ≤2^12 tokens span at most 256×1 + 3840×16 = 61696
+        // bytes (256 single-byte tokens are always present), so u16 offsets
+        // suffice; larger dictionaries require u32.
+        // TODO: offsets is always u32 — make it a variant to exploit this.
+        const size_t offsets_bytes = offsets.size() * sizeof(uint32_t);
+        return true_bytes + offsets_bytes;
     }
 
     // Append (MAX_TOKEN_SIZE - last_token_len) zero bytes so the decoder can

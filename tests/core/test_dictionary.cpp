@@ -25,7 +25,7 @@ TEST(DictionaryTest, NumTokensIsSingleEntryMinusOne) {
 
 TEST(DictionaryTest, BytesUsedAccountsForBothVectors) {
     Dictionary d;
-    d.bytes   = {0x00, 0x01, 0x02};      // 3 bytes
+    d.bytes   = {0x00, 0x01, 0x02};       // 3 bytes
     d.offsets = {0, 1, 2, 3};             // 4 uint32_t = 16 bytes
     const size_t expected = 3 + 4 * sizeof(uint32_t);
     EXPECT_EQ(d.bytes_used(), expected);

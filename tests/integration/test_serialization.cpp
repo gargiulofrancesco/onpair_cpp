@@ -86,7 +86,7 @@ TEST(SerializationTest, InvalidBitWidthInFileThrows) {
     auto col = op::OnPairColumn::compress(make_user_strings(5));
     std::string blob = serialize(col);
     // The bit_width field is at byte 8 (after 8-byte magic).
-    blob[8] = 11;  // 11 is not a valid bit width
+    blob[8] = 8;  // 8 is a valid bit width
     EXPECT_THROW(deserialize(blob), std::runtime_error);
 }
 
@@ -100,7 +100,7 @@ TEST(SerializationTest, EmptyColumnRoundTrips) {
 
 class SerializationBitWidthTest : public testing::TestWithParam<int> {};
 INSTANTIATE_TEST_SUITE_P(AllBitWidths, SerializationBitWidthTest,
-    testing::Values(12, 13, 14, 15, 16),
+    testing::Values(9, 10, 11, 12, 13, 14, 15, 16),
     [](const auto& info) { return "bits" + std::to_string(info.param); });
 
 TEST_P(SerializationBitWidthTest, RoundTripPreservesContent) {

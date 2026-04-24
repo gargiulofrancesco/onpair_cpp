@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // TokenCursor<Bits> — pull-model iterator over a bit-packed token stream.
 //
-// Bits is a compile-time constant (12-16) so all masks and
+// Bits is a compile-time constant (9-16) so all masks and
 // shifts fold into literals.  Resolve the runtime bit width once with
 // dispatch_bits(), then work with a monomorphised cursor inside the lambda.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ namespace onpair::decoding {
 
 template<BitWidth Bits>
 class TokenCursor {
-    static_assert(is_valid_bits(Bits), "Bits must be in [12, 16]");
+    static_assert(is_valid_bits(Bits), "Bits must be in [9, 16]");
 
     static constexpr uint32_t MASK = (uint32_t(1) << Bits) - 1;
 

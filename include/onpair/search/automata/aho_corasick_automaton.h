@@ -4,6 +4,7 @@
 #include <onpair/core/dictionary_view.h>
 #include <algorithm>
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <string_view>
 #include <vector>

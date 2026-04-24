@@ -106,7 +106,7 @@ TEST(DecoderTest, BulkWithEmbeddedEmptyStrings) {
 
 class DecoderBitWidthTest : public testing::TestWithParam<int> {};
 INSTANTIATE_TEST_SUITE_P(AllBitWidths, DecoderBitWidthTest,
-    testing::Values(12, 13, 14, 15, 16),
+    testing::Values(9, 10, 11, 12, 13, 14, 15, 16),
     [](const auto& info) { return "bits" + std::to_string(info.param); });
 
 // Full pipeline at each bit width with a corpus large enough to produce

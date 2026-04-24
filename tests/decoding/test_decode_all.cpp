@@ -48,7 +48,7 @@ static std::string decode_all_dispatch(const Store& store,
 
 class DecodeAllTest : public testing::TestWithParam<int> {};
 INSTANTIATE_TEST_SUITE_P(AllBitWidths, DecodeAllTest,
-    testing::Values(12, 13, 14, 15, 16),
+    testing::Values(9, 10, 11, 12, 13, 14, 15, 16),
     [](const auto& info) { return "bits" + std::to_string(info.param); });
 
 // Zero tokens → returns 0 and writes nothing.

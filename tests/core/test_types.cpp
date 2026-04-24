@@ -84,19 +84,19 @@ TEST(MaxDictSizeTest, Bit16Is65536) {
 }
 
 TEST(MaxDictSizeTest, IsPowerOfTwo) {
-    for (BitWidth b = 12; b <= 16; ++b)
+    for (BitWidth b = 9; b <= 16; ++b)
         EXPECT_EQ(max_dict_size(b), size_t(1) << b);
 }
 
 // ── is_valid_bits ─────────────────────────────────────────────────────────────
 
-TEST(IsValidBitsTest, AcceptsRange12To16) {
-    for (BitWidth b = 12; b <= 16; ++b)
+TEST(IsValidBitsTest, AcceptsRange9To16) {
+    for (BitWidth b = 9; b <= 16; ++b)
         EXPECT_TRUE(is_valid_bits(b)) << "expected true for bits=" << int(b);
 }
 
-TEST(IsValidBitsTest, Rejects11And17) {
-    EXPECT_FALSE(is_valid_bits(11));
+TEST(IsValidBitsTest, Rejects8And17) {
+    EXPECT_FALSE(is_valid_bits(8));
     EXPECT_FALSE(is_valid_bits(17));
 }
 
