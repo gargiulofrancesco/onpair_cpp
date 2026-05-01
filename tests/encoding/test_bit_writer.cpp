@@ -79,7 +79,7 @@ TEST_P(BitWriterTest, PackedSizeIsConsistentWithTokenCount) {
     store.bit_width = bw;
     { BitWriter writer(store); for (int i = 0; i < n; ++i) writer.write(Token(1)); }
 
-    EXPECT_EQ(store.packed.size(), expected_packed_words(n, bw));
+    EXPECT_EQ(store.packed.size(), expected_packed_words(n, bw) + 1);  // +1 sentinel
 }
 
 TEST_P(BitWriterTest, TokensWrittenCountEqualsTokensWritten) {
@@ -156,7 +156,7 @@ TEST(BitWriterTest_Manual, ImplicitFlushViaDestructor) {
         writer.write(0xABCD);
         // No explicit flush(); the destructor is the only flush path.
     }
-    ASSERT_EQ(store.packed.size(), 1u);
+    ASSERT_EQ(store.packed.size(), 2u);  // data word + sentinel
     EXPECT_EQ(store.packed[0] & 0xFFFF, 0xABCDull);
 }
 
@@ -168,9 +168,9 @@ TEST(BitWriterTest_Manual, ExplicitFlushIsIdempotent) {
         BitWriter writer(store);
         writer.write(0xABCD);
         writer.flush();
-        // Destructor calls flush() again; shift_ == 0 so it must be a no-op.
+        // Destructor calls flush() again; flushed_ == true so it must be a no-op.
     }
-    ASSERT_EQ(store.packed.size(), 1u);
+    ASSERT_EQ(store.packed.size(), 2u);  // data word + sentinel
     EXPECT_EQ(store.packed[0] & 0xFFFF, 0xABCDull);
 }
 
@@ -180,10 +180,10 @@ TEST(BitWriterTest_Manual, ConstructorClearsPreviousData) {
     Store store;
     store.bit_width = 16;
     { BitWriter w(store); w.write(0xAAAA); }
-    ASSERT_EQ(store.packed.size(), 1u);
+    ASSERT_EQ(store.packed.size(), 2u);  // data word + sentinel
 
     { BitWriter w(store); w.write(0xBBBB); }
-    ASSERT_EQ(store.packed.size(), 1u);
+    ASSERT_EQ(store.packed.size(), 2u);  // data word + sentinel
     EXPECT_EQ(store.packed[0] & 0xFFFF, 0xBBBBull);
 }
 
@@ -206,7 +206,7 @@ TEST(BitWriterTest_Manual, StradlingBitLayoutAt12Bits) {
     store.bit_width = 12;
     { BitWriter writer(store); for (Token t : tokens) writer.write(t); }
 
-    ASSERT_EQ(store.packed.size(), 2u);
+    ASSERT_EQ(store.packed.size(), 3u);  // 2 data words + sentinel
     EXPECT_EQ(store.packed[0], 0x3000000000000ABCull);
     EXPECT_EQ(store.packed[1], 0x0000000000000012ull);
 

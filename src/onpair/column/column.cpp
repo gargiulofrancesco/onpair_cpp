@@ -80,7 +80,7 @@ std::vector<T> read_vec(std::istream& in) {
 //   bit_width             1 byte
 //   dict.bytes            uint32 count + data
 //   dict.offsets          uint32 count + uint32 data
-//   store.packed          uint32 count + uint64 data
+//   store.packed          uint32 count + uint64 data  (sentinel word excluded)
 //   store.boundaries      uint32 count + uint32 data
 
 static constexpr char MAGIC[8] = {'O','N','P','A','I','R','0','1'};
@@ -96,7 +96,16 @@ void OnPairColumn::write_to(std::ostream& out) const {
     write_pod(out, true_bytes);
     if (true_bytes) out.write(reinterpret_cast<const char*>(dict_.bytes.data()), true_bytes);
     write_vec(out, dict_.offsets);
-    write_vec(out, store_.packed);
+    // Write packed words without the trailing sentinel added by BitWriter::flush().
+    // read_from() re-adds it.
+    {
+        const uint32_t real_words = store_.packed.empty()
+            ? 0u : static_cast<uint32_t>(store_.packed.size()) - 1u;
+        write_pod(out, real_words);
+        if (real_words)
+            out.write(reinterpret_cast<const char*>(store_.packed.data()),
+                      real_words * sizeof(uint64_t));
+    }
     write_vec(out, store_.boundaries);
 }
 
@@ -116,7 +125,9 @@ OnPairColumn OnPairColumn::read_from(std::istream& in) {
     col.dict_.pad_for_decoder();  // restore decoder-padding stripped by write_to()
 
     col.store_.bit_width  = bit_width;
-    col.store_.packed     = read_vec<uint64_t>(in);
+    col.store_.packed = read_vec<uint64_t>(in);
+    if (!col.store_.packed.empty())
+        col.store_.packed.push_back(0);  // restore sentinel for safe over-read
     col.store_.boundaries = read_vec<uint32_t>(in);
 
     return col;

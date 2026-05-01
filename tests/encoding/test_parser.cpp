@@ -146,7 +146,7 @@ TEST_P(ParserStructuralTest, PackedSizeIsConsistentWithTokenCount) {
     Store store;
     parse(raw.data.data(), raw.offsets.data(), raw.n, lpm, bits, store);
 
-    EXPECT_EQ(store.packed.size(), expected_packed_words(store.num_tokens(), bits));
+    EXPECT_EQ(store.packed.size(), expected_packed_words(store.num_tokens(), bits) + 1);  // +1 sentinel
 }
 
 // ── Round-trip correctness: base tokens (untrained LPM) ───────────────────────
