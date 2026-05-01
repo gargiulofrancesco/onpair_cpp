@@ -107,7 +107,7 @@ inline KmpAutomaton::KmpAutomaton(std::string_view pattern, DictionaryView dict)
     // KMP transition: consume `len` bytes from state `s` (absorbing at m).
     auto step_bytes = [&](State s, const uint8_t* data, size_t len) -> State {
         for (size_t i = 0; i < len; ++i) {
-            if (s == m) return m;
+            if (s == m) return static_cast<State>(m);
             while (s > 0 && p[s] != data[i]) s = fail[s - 1];
             if (p[s] == data[i]) ++s;
         }

@@ -54,7 +54,7 @@ inline std::vector<std::string> make_random_strings(int n, int max_len, uint64_t
 {
     std::mt19937_64 rng(seed);
     std::uniform_int_distribution<int>     len_dist(1, max_len);
-    std::uniform_int_distribution<uint8_t> byte_dist(0x20, 0x7E);
+    std::uniform_int_distribution<int>     byte_dist(0x20, 0x7E);
     std::vector<std::string> v;
     v.reserve(n);
     for (int i = 0; i < n; ++i) {
@@ -70,7 +70,7 @@ inline std::vector<std::string> make_binary_strings(int n, int max_len, uint64_t
 {
     std::mt19937_64 rng(seed);
     std::uniform_int_distribution<int>     len_dist(1, max_len);
-    std::uniform_int_distribution<uint16_t> byte_dist(0, 255);
+    std::uniform_int_distribution<int>     byte_dist(0, 255);
     std::vector<std::string> v;
     v.reserve(n);
     for (int i = 0; i < n; ++i) {
@@ -133,7 +133,7 @@ inline std::vector<std::string> make_mixed_length_strings(int n, int max_long,
     std::uniform_int_distribution<int>     kind(0, 3);
     std::uniform_int_distribution<int>     long_len(
         static_cast<int>(onpair::MAX_TOKEN_SIZE) + 1, max_long);
-    std::uniform_int_distribution<uint8_t> byte_dist(0x20, 0x7E);
+    std::uniform_int_distribution<int>     byte_dist(0x20, 0x7E);
 
     std::vector<std::string> v;
     v.reserve(static_cast<size_t>(n));
