@@ -3,8 +3,8 @@
 [![CI](https://github.com/gargiulofrancesco/onpair_cpp/actions/workflows/ci.yml/badge.svg)](https://github.com/gargiulofrancesco/onpair_cpp/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/gargiulofrancesco/onpair_cpp/branch/main/graph/badge.svg)](https://codecov.io/gh/gargiulofrancesco/onpair_cpp)
 ![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)
-![CMake](https://img.shields.io/badge/CMake-3.16%2B-064F8C.svg)
-[![License](https://img.shields.io/badge/license-see%20LICENSE-blue.svg)](LICENSE)
+![CMake](https://img.shields.io/badge/CMake-3.21%2B-064F8C.svg)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Field-level string compression for database systems, with random access and compressed-domain string predicates.**
 
@@ -204,26 +204,52 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
 ### Requirements
 
 - C++20 compiler: GCC 11+, Clang 13+, AppleClang, or MSVC 19.29+.
-- CMake 3.16+.
+- CMake 3.21+.
 - Boost.Unordered 1.91. If unavailable as a system package, CMake fetches Boost 1.91 through `FetchContent`.
 
 ### Build
+
+A standard release build. Top-level builds enable LTO automatically; the resulting archive is portable across machines of the same OS/ABI:
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
 
-Link the static library target:
+For maximum performance on the build machine — typically benchmarks, profiling runs, or single-target deployments — also enable host-specific code generation. The resulting binary is **not portable** to other CPUs:
 
-```cmake
-target_link_libraries(my_target PRIVATE onpair)
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DONPAIR_NATIVE_ARCH=ON
+cmake --build build --parallel
 ```
 
-The repository also provides a helper for examples and local tools:
+CMake options that affect the build:
+
+| Option | Default | Notes |
+|---|---|---|
+| `ONPAIR_ENABLE_LTO` | `ON` (top-level) / `OFF` (embedded) | Per-config IPO on Release / RelWithDebInfo / MinSizeRel. |
+| `ONPAIR_NATIVE_ARCH` | `OFF` | Adds `-march=native` to the library archive only (PRIVATE). |
+| `ONPAIR_BUILD_TESTS` | `OFF` | Build the GoogleTest suite. |
+| `ONPAIR_BUILD_EXAMPLES` | `ON` (top-level) / `OFF` (embedded) | Build the programs under `examples/`. |
+| `ONPAIR_INSTALL` | `ON` (top-level) / `OFF` (embedded) | Install rules and `find_package(OnPair)` config. |
+
+Most of OnPair's hot-path code (decoder, scan loop, automata) is header-only, so the consumer's compile flags drive code generation for those templates.
+
+### Linking
 
 ```cmake
-onpair_executable(my_program.cpp)
+target_link_libraries(my_target PRIVATE OnPair::onpair)
+```
+
+`OnPair::onpair` is the canonical alias and works identically whether OnPair is consumed via `add_subdirectory()`, `FetchContent`, or `find_package()`.
+
+### find_package
+
+Once OnPair is installed (`cmake --install build --prefix /some/where`), downstream projects use:
+
+```cmake
+find_package(OnPair 0.1 CONFIG REQUIRED)
+target_link_libraries(my_target PRIVATE OnPair::onpair)
 ```
 
 ### FetchContent
@@ -239,8 +265,10 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(onpair)
 
-target_link_libraries(my_target PRIVATE onpair)
+target_link_libraries(my_target PRIVATE OnPair::onpair)
 ```
+
+When OnPair is consumed this way, tests, examples, install rules, and LTO are all opt-in — the parent project keeps full control of its own build policy.
 
 ### Arrow-Style Buffers
 

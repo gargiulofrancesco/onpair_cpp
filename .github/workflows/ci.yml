@@ -110,6 +110,48 @@ jobs:
       - name: Test
         run: ctest --test-dir build --build-config ${{ matrix.build_type }} --output-on-failure --parallel 4
 
+  # ── Performance configuration (LTO + native arch) ───────────────────────────
+  #
+  # The default portability matrix above never exercises the configuration that
+  # real benchmark users will run (-DONPAIR_ENABLE_LTO=ON -DONPAIR_NATIVE_ARCH=ON).
+  # This dedicated job keeps that path green: it catches code that builds in the
+  # portable configuration but breaks under aggressive inlining or LTO link-time
+  # whole-program analysis. -march=native is safe within a single CI job because
+  # build and test execute on the same runner (no cross-machine binary reuse).
+  perf-build:
+    name: "Linux Clang Release + LTO + native"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang 18
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang-18
+
+      - name: Cache CMake dependencies
+        uses: actions/cache@v4
+        with:
+          path: build_perf/_deps
+          key: deps-perf-${{ hashFiles('tests/CMakeLists.txt') }}
+
+      - name: Configure
+        env:
+          CC:  clang-18
+          CXX: clang++-18
+        run: |
+          cmake -B build_perf \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DONPAIR_BUILD_TESTS=ON \
+            -DONPAIR_ENABLE_LTO=ON \
+            -DONPAIR_NATIVE_ARCH=ON
+
+      - name: Build
+        run: cmake --build build_perf --parallel
+
+      - name: Test
+        run: ctest --test-dir build_perf --output-on-failure --parallel 4
+
   # ── Sanitizers ───────────────────────────────────────────────────────────────
   sanitizers:
     name: ${{ matrix.name }}
