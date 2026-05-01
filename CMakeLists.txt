@@ -12,10 +12,25 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
+# ── Boost Dependency ───────────────────────────────────────────────────────────
+find_package(Boost 1.91 QUIET CONFIG COMPONENTS unordered)
+if(NOT Boost_FOUND)
+    message(STATUS "System Boost.Unordered not found — fetching from upstream")
+    include(FetchContent)
+    set(BOOST_INCLUDE_LIBRARIES unordered)
+    set(BOOST_ENABLE_CMAKE ON)
+    FetchContent_Declare(
+        Boost
+        URL https://github.com/boostorg/boost/releases/download/boost-1.91.0-1/boost-1.91.0-1-cmake.tar.xz
+        URL_HASH SHA256=cc5dc5006ecbdf0051f90979be31b4eee5987d9ae14ae9fb9c03cfa43fa3cdad
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+    FetchContent_MakeAvailable(Boost)
+endif()
+
 # ── Include paths ──────────────────────────────────────────────────────────────
 set(ONPAIR_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/external/robin_hood
 )
 
 # ── Library ────────────────────────────────────────────────────────────────────
@@ -29,6 +44,8 @@ file(GLOB_RECURSE ONPAIR_SOURCES CONFIGURE_DEPENDS
 add_library(onpair STATIC ${ONPAIR_SOURCES})
 target_include_directories(onpair PUBLIC ${ONPAIR_INCLUDE_DIRS})
 target_compile_features(onpair PUBLIC cxx_std_20)
+
+target_link_libraries(onpair PUBLIC Boost::unordered)
 
 # ── Compiler optimisation flags ────────────────────────────────────────────────
 if(NOT MSVC)

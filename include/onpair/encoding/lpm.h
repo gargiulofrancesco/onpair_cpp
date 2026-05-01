@@ -1,7 +1,7 @@
 #pragma once
 #include <onpair/core/dictionary_view.h>
 #include <onpair/core/types.h>
-#include <robin_hood.h>
+#include <boost/unordered/unordered_flat_map.hpp>
 #include <algorithm>
 #include <bit>
 #include <cstdint>
@@ -329,19 +329,9 @@ private:
         return tb;
     }
 
-    // ── Hash helper ───────────────────────────────────────────────────────────
-    struct PairHash {
-        size_t operator()(std::pair<uint64_t, uint8_t> p) const noexcept {
-            uint64_t h = p.first ^ (uint64_t(p.second) * 0x9e3779b97f4a7c15ULL);
-            h ^= h >> 30; h *= 0xbf58476d1ce4e5b9ULL;
-            h ^= h >> 27; h *= 0x94d049bb133111ebULL;
-            return size_t(h ^ (h >> 31));
-        }
-    };
-
     // ── Storage ───────────────────────────────────────────────────────────────
-    robin_hood::unordered_map<std::pair<uint64_t, uint8_t>, Token, PairHash> short_;
-    robin_hood::unordered_map<uint64_t, Bucket>                              long_;
+    boost::unordered_flat_map<std::pair<uint64_t, uint8_t>, Token> short_;
+    boost::unordered_flat_map<uint64_t, Bucket>                    long_;
     Pool     pool_;
     uint32_t next_id_ = 0; // uint32_t avoids wrap-around when all 65 536 Token IDs are used
 };

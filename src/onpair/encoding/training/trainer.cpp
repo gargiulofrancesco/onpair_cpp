@@ -2,7 +2,7 @@
 #include <onpair/encoding/training/dynamic_threshold.h>
 #include <onpair/core/dictionary_view.h>
 #include <onpair/core/types.h>
-#include <robin_hood.h>
+#include <boost/unordered/unordered_flat_map.hpp>
 #include <algorithm>
 #include <cstring>
 #include <numeric>
@@ -111,7 +111,7 @@ TrainResult train(const uint8_t* data,
 
     // ── Pair frequency map ────────────────────────────────────────────────────
     // Key packs two Token values into one uint32_t — avoids a custom hash.
-    robin_hood::unordered_map<uint32_t, uint8_t> freq;
+    boost::unordered_flat_map<uint32_t, uint8_t> freq;
 
     // ── Main training loop ────────────────────────────────────────────────────
     bool full_dictionary = false;
