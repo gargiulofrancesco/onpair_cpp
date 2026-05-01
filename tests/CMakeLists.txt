@@ -22,6 +22,7 @@ include(GoogleTest)
 function(onpair_test src)
     get_filename_component(name ${src} NAME_WE)
     add_executable(${name} ${src})
+    onpair_apply_configured_optimizations(${name})
     target_link_libraries(${name}
         PRIVATE
             onpair

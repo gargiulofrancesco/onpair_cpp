@@ -30,12 +30,12 @@ public:
 
     // Bind to a packed buffer without selecting a span yet.
     // Call reset_to(span) before reading.
-    explicit TokenCursor(const uint64_t* __restrict__ packed) noexcept
+    explicit TokenCursor(const uint64_t* ONPAIR_RESTRICT packed) noexcept
         : base_(reinterpret_cast<const uint8_t*>(packed)),
           bit_pos_(0), bit_end_(0) {}
 
     // Bind to a packed buffer and position on [span.begin, span.end).
-    TokenCursor(const uint64_t* __restrict__ packed,
+    TokenCursor(const uint64_t* ONPAIR_RESTRICT packed,
                 StreamSpan span) noexcept
         : base_(reinterpret_cast<const uint8_t*>(packed)),
           bit_pos_(span.begin * Bits), bit_end_(span.end * Bits) {}

@@ -39,8 +39,8 @@ public:
     bool matches(decoding::TokenCursor<Bits>& cursor) const noexcept;
 
     template<BitWidth Bits, std::invocable<size_t> F>
-    void scan(const uint64_t* __restrict__ packed,
-              const uint32_t* __restrict__ bounds,
+    void scan(const uint64_t* ONPAIR_RESTRICT packed,
+              const uint32_t* ONPAIR_RESTRICT bounds,
               size_t n, F&& on_match) const;
 
 private:
@@ -66,8 +66,8 @@ bool EQSearch::matches(decoding::TokenCursor<Bits>& cursor) const noexcept
 }
 
 template<BitWidth Bits, std::invocable<size_t> F>
-void EQSearch::scan(const uint64_t* __restrict__ packed,
-                            const uint32_t* __restrict__ bounds,
+void EQSearch::scan(const uint64_t* ONPAIR_RESTRICT packed,
+                            const uint32_t* ONPAIR_RESTRICT bounds,
                             size_t n, F&& on_match) const
 {
     decoding::TokenCursor<Bits> cursor(packed);

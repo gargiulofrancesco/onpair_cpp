@@ -2,12 +2,11 @@
 #  OnPair — a high-performance string compression library
 # ──────────────────────────────────────────────────────────────────────────────
 
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.21...3.30)
 
 project(OnPair
     VERSION      0.1.0
-    DESCRIPTION
-        "Short strings compression for fast random and compressed pattern matching"
+    DESCRIPTION  "Short strings compression for fast random and compressed pattern matching"
     HOMEPAGE_URL "https://github.com/gargiulofrancesco/onpair_cpp"
     LANGUAGES    CXX
 )
@@ -31,22 +30,22 @@ else()
     set(_onpair_default_warnings OFF)
 endif()
 
-option(ONPAIR_BUILD_TESTS    "Build the OnPair test suite"                  OFF)
-option(ONPAIR_BUILD_EXAMPLES "Build the OnPair example programs"            ${_onpair_default_examples})
-option(ONPAIR_INSTALL        "Generate install rules for OnPair"            ${_onpair_default_install})
-option(ONPAIR_WARNINGS       "Enable a strict warning set on OnPair"        ${_onpair_default_warnings})
+option(ONPAIR_BUILD_TESTS    "Build the OnPair test suite"          OFF)
+option(ONPAIR_BUILD_EXAMPLES "Build the OnPair example programs"    ${_onpair_default_examples})
+option(ONPAIR_INSTALL        "Generate install rules for OnPair"    ${_onpair_default_install})
+option(ONPAIR_WARNINGS       "Enable a strict warning set on OnPair" ${_onpair_default_warnings})
 
-# Performance flags. -march=native stays opt-in: it bakes host-CPU instructions
-# into the archive, which breaks distro builds where the build host differs
-# from the user's machine. LTO defaults ON for top-level only; embedded builds
-# leave the policy to the parent. LTO is scoped per-config below so Debug
-# (sanitizer, coverage) builds never produce bitcode archives.
-option(ONPAIR_NATIVE_ARCH    "Build with -march=native (binary not portable)"  OFF)
-option(ONPAIR_ENABLE_LTO     "Enable interprocedural optimisation (LTO/IPO)"   ${PROJECT_IS_TOP_LEVEL})
+# Performance flags. Both are PRIVATE and opt-in:
+#   - -march=native bakes host-CPU instructions into objects, which breaks
+#     distro builds where build host ≠ user machine.
+#   - LTO objects in installed static archives can require a compatible
+#     whole-program link from consumers.
+# Final benchmark/application targets must apply these too — most hot-path
+# code lives in headers and is instantiated by the consumer.
+option(ONPAIR_NATIVE_ARCH "Build with -march=native (binary not portable)" OFF)
+option(ONPAIR_ENABLE_LTO  "Enable interprocedural optimisation (LTO/IPO)"  OFF)
 
 # Default to Release only at top-level under a single-config generator.
-# Multi-config generators (Ninja Multi-Config, Visual Studio, Xcode) ignore
-# CMAKE_BUILD_TYPE.
 get_property(_onpair_is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(PROJECT_IS_TOP_LEVEL AND NOT _onpair_is_multi_config AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -54,25 +53,28 @@ if(PROJECT_IS_TOP_LEVEL AND NOT _onpair_is_multi_config AND NOT CMAKE_BUILD_TYPE
         Debug Release RelWithDebInfo MinSizeRel)
 endif()
 
-# Centralise executables in build/bin only at top-level; consumers keep
-# control of their own output layout.
+# Centralise output layout only at top-level; consumers keep control of theirs.
 if(PROJECT_IS_TOP_LEVEL)
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 endif()
 
-include(CheckCXXCompilerFlag)
-include(CheckIPOSupported)
 include(GNUInstallDirs)
+include("${PROJECT_SOURCE_DIR}/cmake/OnPairTargetHelpers.cmake")
 
 # ──────────────────────────────────────────────────────────────────────────────
 #  Dependencies
 # ──────────────────────────────────────────────────────────────────────────────
+#  Boost.Unordered ≥ 1.81 is required — boost::unordered_flat_map landed in
+#  Boost 1.81 and the API has been stable since. Prefer a system install;
+#  fall back to FetchContent only when the system copy is missing or older.
+# ──────────────────────────────────────────────────────────────────────────────
 
-# Prefer a system-installed Boost.Unordered; fetch upstream only as a fallback.
-find_package(Boost 1.91 QUIET CONFIG COMPONENTS unordered)
+find_package(Boost 1.81 QUIET CONFIG COMPONENTS unordered)
 set(_onpair_boost_fetched FALSE)
 if(NOT Boost_FOUND)
-    message(STATUS "OnPair: system Boost.Unordered not found — fetching upstream")
+    message(STATUS "OnPair: system Boost.Unordered ≥ 1.81 not found — fetching upstream")
     include(FetchContent)
     set(BOOST_INCLUDE_LIBRARIES unordered)
     set(BOOST_ENABLE_CMAKE ON)
@@ -86,23 +88,40 @@ if(NOT Boost_FOUND)
     set(_onpair_boost_fetched TRUE)
 endif()
 
-# Disable install when Boost was fetched: the fetched targets are not in any
-# export set, so install(EXPORT) would fail at generate time. A working
-# install requires a system Boost.Unordered that find_package(OnPair)
-# consumers can also resolve.
+# Fetched Boost targets are not part of any export set, so install(EXPORT)
+# would fail at generate time. A working install requires a system Boost
+# that downstream find_package(OnPair) consumers can also resolve.
 if(ONPAIR_INSTALL AND _onpair_boost_fetched)
     message(STATUS
         "OnPair: disabling install rules — install requires a system "
-        "Boost.Unordered ≥ 1.91 (currently fetched via FetchContent).")
+        "Boost.Unordered ≥ 1.81 (currently fetched via FetchContent).")
     set(ONPAIR_INSTALL OFF)
 endif()
 
 # ──────────────────────────────────────────────────────────────────────────────
 #  Library target
 # ──────────────────────────────────────────────────────────────────────────────
-#  Hot-path code (decoder, scan loop, automata) lives in headers. Only
+#  Hot-path code (decoder, scan loop, automata) lives in headers. Only the
 #  non-template translation units are compiled into the archive.
+#
+#  OnPair is intentionally STATIC-only. Most of the hot path is templated
+#  and instantiated in the consumer's translation units, so a SHARED
+#  libonpair would ship only a thin shell of the library. The supported
+#  deployment is a STATIC + PIC archive linked into the consumer's host
+#  binary or DSO. BUILD_SHARED_LIBS=ON is rejected at configure time so a
+#  parent project that toggles it globally does not silently produce a
+#  broken libonpair.so.
 # ──────────────────────────────────────────────────────────────────────────────
+
+if(BUILD_SHARED_LIBS)
+    message(FATAL_ERROR
+        "OnPair does not support BUILD_SHARED_LIBS=ON. The library is "
+        "intentionally STATIC: most of the hot path is header-only and "
+        "instantiated in the consumer, so a shared libonpair would not "
+        "carry the performance-critical code. Consume OnPair::onpair as "
+        "a STATIC archive linked into your final binary or DSO. "
+        "See README §Integration for details.")
+endif()
 
 set(ONPAIR_SOURCES
     src/onpair/column/column.cpp
@@ -111,25 +130,22 @@ set(ONPAIR_SOURCES
     src/onpair/encoding/training/trainer.cpp
 )
 
-# Library type follows BUILD_SHARED_LIBS; consumers may override.
-add_library(onpair ${ONPAIR_SOURCES})
+add_library(onpair STATIC ${ONPAIR_SOURCES})
 add_library(OnPair::onpair ALIAS onpair)
 
 target_compile_features(onpair PUBLIC cxx_std_20)
 
 target_include_directories(onpair PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 target_link_libraries(onpair PUBLIC Boost::unordered)
 
 set_target_properties(onpair PROPERTIES
-    POSITION_INDEPENDENT_CODE ON       # allow linking into shared libs
-    CXX_VISIBILITY_PRESET     hidden
+    POSITION_INDEPENDENT_CODE ON       # safe to link into a host DSO
+    CXX_VISIBILITY_PRESET     hidden   # clean symbol table when embedded
     VISIBILITY_INLINES_HIDDEN ON
-    VERSION                   ${PROJECT_VERSION}
-    SOVERSION                 ${PROJECT_VERSION_MAJOR}
 )
 
 # ── Strict warning set (PRIVATE — never propagated to consumers) ──────────────
@@ -146,31 +162,11 @@ if(ONPAIR_WARNINGS)
     endif()
 endif()
 
-# ── -march=native (PRIVATE; opt-in) ───────────────────────────────────────────
-# PRIVATE so consumers never inherit a host-CPU flag on their own TUs. Hot-path
-# code is header-only, so consumers' own architecture flags drive its codegen.
-if(ONPAIR_NATIVE_ARCH AND NOT MSVC)
-    check_cxx_compiler_flag("-march=native" ONPAIR_HAS_MARCH_NATIVE)
-    if(ONPAIR_HAS_MARCH_NATIVE)
-        target_compile_options(onpair PRIVATE -march=native)
-    endif()
-endif()
-
-# ── Link-Time Optimisation (LTO / IPO) ────────────────────────────────────────
-# Per-config so Debug-mode sanitizer/coverage builds never produce LLVM bitcode
-# archives, which some linkers (notably GNU ld) reject at link time.
-if(ONPAIR_ENABLE_LTO)
-    check_ipo_supported(RESULT _onpair_ipo_ok OUTPUT _onpair_ipo_err)
-    if(_onpair_ipo_ok)
-        set_target_properties(onpair PROPERTIES
-            INTERPROCEDURAL_OPTIMIZATION_RELEASE        ON
-            INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO ON
-            INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL     ON
-        )
-    else()
-        message(STATUS "OnPair: LTO requested but unsupported: ${_onpair_ipo_err}")
-    endif()
-endif()
+# ── Opt-in performance settings (PRIVATE; never propagated) ──────────────────
+# Benchmark targets should call onpair_optimize_target(<target>) — header-only
+# hot paths are instantiated in the final target, so flags applied only here
+# do not affect the consumer's code generation.
+onpair_apply_configured_optimizations(onpair)
 
 # ──────────────────────────────────────────────────────────────────────────────
 #  Examples & tests
@@ -213,21 +209,25 @@ if(ONPAIR_INSTALL)
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/OnPair
     )
 
+    install(FILES "${PROJECT_SOURCE_DIR}/cmake/OnPairTargetHelpers.cmake"
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/OnPair
+    )
+
     configure_package_config_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/OnPairConfig.cmake.in
-        ${CMAKE_CURRENT_BINARY_DIR}/OnPairConfig.cmake
+        "${PROJECT_SOURCE_DIR}/cmake/OnPairConfig.cmake.in"
+        "${PROJECT_BINARY_DIR}/OnPairConfig.cmake"
         INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/OnPair
     )
 
     write_basic_package_version_file(
-        ${CMAKE_CURRENT_BINARY_DIR}/OnPairConfigVersion.cmake
+        "${PROJECT_BINARY_DIR}/OnPairConfigVersion.cmake"
         VERSION       ${PROJECT_VERSION}
         COMPATIBILITY SameMajorVersion
     )
 
     install(FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/OnPairConfig.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/OnPairConfigVersion.cmake
+        "${PROJECT_BINARY_DIR}/OnPairConfig.cmake"
+        "${PROJECT_BINARY_DIR}/OnPairConfigVersion.cmake"
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/OnPair
     )
 endif()

@@ -1,7 +1,18 @@
 #pragma once
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include <type_traits>
+
+#ifndef ONPAIR_RESTRICT
+#  if defined(_MSC_VER)
+#    define ONPAIR_RESTRICT __restrict
+#  elif defined(__clang__) || defined(__GNUC__)
+#    define ONPAIR_RESTRICT __restrict__
+#  else
+#    define ONPAIR_RESTRICT
+#  endif
+#endif
 
 namespace onpair {
 
@@ -33,6 +44,16 @@ struct TokenRange {
 constexpr size_t max_dict_size(BitWidth bits) noexcept { return size_t(1) << bits; }
 constexpr bool   is_valid_bits(BitWidth b)    noexcept { return b >= 9 && b <= 16; }
 
+[[noreturn]] inline void unreachable() noexcept {
+#if defined(_MSC_VER)
+    __assume(false);
+#elif defined(__clang__) || defined(__GNUC__)
+    __builtin_unreachable();
+#else
+    std::abort();
+#endif
+}
+
 // Resolve a runtime BitWidth to a compile-time constant and invoke `fn`.
 // `fn` receives a std::integral_constant<BitWidth, N> whose ::value is usable
 // as a template argument.
@@ -47,7 +68,7 @@ decltype(auto) dispatch_bits(BitWidth bw, F&& fn) {
         case 14: return fn(std::integral_constant<BitWidth, 14>{});
         case 15: return fn(std::integral_constant<BitWidth, 15>{});
         case 16: return fn(std::integral_constant<BitWidth, 16>{});
-        default: __builtin_unreachable();
+        default: unreachable();
     }
 }
 

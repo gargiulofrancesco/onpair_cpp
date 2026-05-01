@@ -74,11 +74,11 @@ inline void extract16(const uint64_t* packed, Token* out) noexcept {
 
 template<BitWidth Bits>
 size_t decode_all(
-    const uint64_t* __restrict__ packed,
-    const uint8_t* __restrict__ dict_bytes,
-    const uint32_t* __restrict__ dict_offsets,
+    const uint64_t* ONPAIR_RESTRICT packed,
+    const uint8_t* ONPAIR_RESTRICT dict_bytes,
+    const uint32_t* ONPAIR_RESTRICT dict_offsets,
     uint32_t                     total_tokens,
-    uint8_t* __restrict__ out) noexcept
+    uint8_t* ONPAIR_RESTRICT out) noexcept
 {
     uint8_t* const out_start = out;
 
@@ -138,14 +138,14 @@ size_t decode_all(
 
 template<BitWidth Bits>
 size_t decode_all(
-    const uint64_t* __restrict__ packed,
-    const uint32_t* __restrict__ boundaries,
-    const uint8_t*  __restrict__ dict_bytes,
-    const uint32_t* __restrict__ dict_offsets,
+    const uint64_t* ONPAIR_RESTRICT packed,
+    const uint32_t* ONPAIR_RESTRICT boundaries,
+    const uint8_t*  ONPAIR_RESTRICT dict_bytes,
+    const uint32_t* ONPAIR_RESTRICT dict_offsets,
     uint32_t                     total_tokens,
     size_t                       total_strings,
-    uint8_t*        __restrict__ out,
-    uint32_t*       __restrict__ out_offsets) noexcept
+    uint8_t*        ONPAIR_RESTRICT out,
+    uint32_t*       ONPAIR_RESTRICT out_offsets) noexcept
 {
     // ── 16-bit: iterate per string (no bit manipulation) ─────────────────
     if constexpr (Bits == 16) {

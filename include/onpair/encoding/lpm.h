@@ -152,7 +152,7 @@ public:
         }
 
         // Unreachable when all single-byte tokens are present (precondition).
-        __builtin_unreachable();
+        unreachable();
     }
 
     // Number of tokens currently mapped.

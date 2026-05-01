@@ -1,8 +1,9 @@
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
-find_dependency(Boost 1.91 CONFIG COMPONENTS unordered)
+find_dependency(Boost 1.81 CONFIG COMPONENTS unordered)
 
 include("${CMAKE_CURRENT_LIST_DIR}/OnPairTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/OnPairTargetHelpers.cmake")
 
 check_required_components(OnPair)

@@ -8,51 +8,34 @@
 
 **Field-level string compression for database systems, with random access and compressed-domain string predicates.**
 
-OnPair stores a string column as a fixed-width, bit-packed token stream backed by a learned dictionary. It is built for execution engines that need to decompress individual values by row id and evaluate SQL-style filters without first materialising the original byte strings.
+> **Status:** OnPair is pre-1.0. The on-disk format and the public API may change without notice. There are no tagged releases yet — pin to a specific commit hash if you embed the library.
+
+OnPair stores a string column as a bit-packed token stream backed by a learned, size-configurable dictionary of frequent patterns (9–16 bits per token, 512–65,536 entries). It is built for execution engines that need to decompress individual values by row id, and accelerates the evaluation of SQL-style predicates by running them directly on the compressed stream.
 
 ## Overview
 
-Generic block codecs optimise byte volume, but database string operators usually need row boundaries, point access, and predicate evaluation. A `LIKE '%needle%'` filter over a compressed block typically becomes: decompress, materialise, scan bytes, discard most rows.
+General-purpose compressors (LZ4, Zstd, Snappy) group many short strings into a shared block to reach a useful ratio. That block is a decoding dependency: reading one row, or scanning for a pattern, forces the engine to decompress every byte of the block — successive strings cannot be reconstructed without the ones before them.
 
-OnPair keeps **each string independently addressable** while sharing a column-level dictionary of frequent byte patterns. Search predicates are compiled into token automata and evaluated directly over the compressed stream:
+OnPair encodes each string independently. Random access decodes only the bytes for the requested row id, and a pattern scan (e.g., `LIKE '%needle%'`) can stop on the first match in a row and jump to the next row without touching the rest. A column-level dictionary amortises the cost of frequent byte patterns across the whole column, and search predicates are compiled into token automata and evaluated directly over the compressed stream:
 
-- `LIKE '%p%'` through token-level KMP.
-- `LIKE 'p%'` through prefix-range automata over the sorted dictionary.
-- `WHERE col = 'value'` through positional token equality.
-- `NOT`, `AND`, and `OR` through composable automata.
+- Substring match: `LIKE '%needle%'` 
+- Prefix match: `LIKE 'needle%'`
+- Equality: `WHERE col = 'value'`
+- Multi-pattern match:  `LIKE '%a%' OR LIKE '%b%' OR …`
+- Boolean composition: `NOT`, `AND`, `OR` over any of the above
 
-The result is a column format that supports point decompression, full-column decompression, and SQL-grade string filters from the same physical representation.
+The same physical representation supports point decompression, full-column scans, and the predicate set above — without secondary indexes or operator-specific layouts.
 
-## Architectural Highlights
+## Implementation Properties
 
-- **Independent string compression.** Per-string token boundaries provide O(tokens in value) random access; no neighbouring rows or block prefix are decoded.
-- **Bit-packed fixed-width store.** Token ids are packed LSB-first at 9-16 bits per token with Arrow-style `n + 1` row boundaries.
-- **Compile-time bit-width dispatch.** The runtime bit width is resolved once, then decode and scan loops run through `TokenCursor<Bits>` specialisations.
-- **Branchless decoder over-copy.** Decode paths copy `MAX_TOKEN_SIZE` bytes per token and advance by the true token length, removing a length-dependent branch from the inner loop.
+- **Compressed-domain boolean algebra.** Arbitrary boolean compositions of substring, prefix, equality, and multi-pattern predicates execute in one pass over the compressed stream — no separate filter, no intermediate materialisation.
 - **Sorted dictionary.** Tokens are stored lexicographically, enabling binary-search prefix ranges and sparse automaton transition ranges.
-- **Compressed-domain boolean algebra.** Any `TokenAutomaton` can be wrapped with `!`, `&&`, and `||`; combined predicates execute in one pass over the token stream.
-- **C++20 range-based API.** Compression accepts any input range whose values convert to `std::string_view`; Arrow-style flat buffers are supported directly.
-- **Amortised query compilation.** KMP, prefix, equality, and Aho-Corasick automata precompute dictionary-aware transition state once, then scan many rows.
+- **Amortised query compilation.** Each predicate compiles once against the column's dictionary, then scans an arbitrary number of rows without re-tokenising or rebuilding transitions.
+- **Bit-packed fixed-width store.** Token ids are packed LSB-first at 9–16 bits per token with Arrow-style `n + 1` row boundaries.
+- **Compile-time bit-width dispatch.** Runtime bit width is resolved once at column open and specialises every hot loop, so 9–16-bit columns share no shifts or masks at run time.
+- **Range-based and Arrow-compatible API.** Compresses any C++20 range of `std::string_view`-convertible values, and accepts Arrow-style `(bytes, offsets, n)` buffers directly.
 - **Versioned binary persistence.** Columns serialize to `ONPAIR01` plus dictionary and packed-store arrays.
 
-<!--
-## Performance & Benchmarks
-
-Benchmark numbers are intentionally left as placeholders until the benchmark harness and datasets are checked in. Report throughput in GB/s and ratio as `compressed_size / input_size`.
-
-| Codec | Compress GB/s | Point Decode GB/s | Full Decode GB/s | `LIKE '%p%'` Scan GB/s | Size / Input | Notes |
-|---|---:|---:|---:|---:|---:|---|
-| OnPair | TBD | TBD | TBD | TBD | TBD | Compressed-domain scan; independent row access |
-| LZ4 | TBD | TBD | TBD | TBD | TBD | Baseline fast block codec; predicate requires materialization |
-| Zstd | TBD | TBD | TBD | TBD | TBD | Baseline ratio-oriented block codec; predicate requires materialization |
-| Snappy | TBD | TBD | TBD | TBD | TBD | Baseline database-oriented block codec; predicate requires materialization |
-
-Benchmark dimensions:
-
-- Dataset: real string columns plus synthetic cardinality and prefix-skew sweeps.
-- Operations: compression, point decode, full decode, contains, prefix, equality, multi-pattern contains.
-- Reporting: median, p95, input bytes/s, compressed bytes/s, output bytes/s, and compressed size.
--->
 
 ## Quick Start
 
@@ -113,7 +96,7 @@ int main() {
 
 The scan loop drives automata over token ids. Use callback overloads when the caller already has a selection-vector builder, bitmap writer, or downstream operator sink.
 
-## Advanced Usage / Internals
+## Advanced Usage
 
 ### Automata Combinators
 
@@ -141,23 +124,33 @@ view.scan(!blocked && (bounced || internal), [](std::size_t row_id) {
 
 Keep component automata alive for the duration of the scan. Pass composed expressions directly to `scan`, or name intermediate wrappers explicitly when storing them.
 
-### Branchless Over-Copy
+### Arrow-Style Buffers
 
-Dictionary tokens are capped at `MAX_TOKEN_SIZE == 16`. Decode paths issue a fixed-size copy per token:
+Use the raw-buffer overload when the input already exists as a contiguous byte buffer plus offsets:
 
 ```cpp
-std::memcpy(out, dict_bytes + token_offset, onpair::MAX_TOKEN_SIZE);
-out += token_length;
+const char*     bytes   = arrow_string_array.data();
+const uint32_t* offsets = arrow_string_array.offsets(); // n + 1 entries
+std::size_t     n       = arrow_string_array.length();
+
+op::OnPairColumn col = op::OnPairColumn::compress(bytes, offsets, n, cfg);
 ```
 
-The dictionary is padded so the fixed copy is always in-bounds, and callers provide `DECOMPRESS_BUFFER_PADDING` bytes past the true output length. This trades a small amount of safe over-copy for a simpler decode loop with no token-length branch in the hot path.
+### Serialization
 
-### Token-Level Search
+```cpp
+std::ofstream out("column.onp", std::ios::binary);
+col.write_to(out);
 
-- `KmpAutomaton` builds byte-level KMP failure state, then compiles dictionary-token transitions into a dense base table plus sparse exception ranges.
-- `AhoCorasickAutomaton` eagerly compiles multi-pattern transitions; `AhoCorasickLazyAutomaton` defers sparse-state expansion until a state is reached; `AhoCorasickOnlineAutomaton` avoids token-level precomputation.
-- `PrefixAutomaton` tokenizes the query prefix and precomputes valid divergence ranges through `DictionaryView::prefix_range`.
-- `EqAutomaton` tokenizes the query once and rejects by token mismatch or length difference.
+std::ifstream in("column.onp", std::ios::binary);
+op::OnPairColumn restored = op::OnPairColumn::read_from(in);
+```
+
+## Benchmarking
+
+Benchmark results, reference datasets, and a comparison protocol against general-purpose codecs (LZ4, Zstd, Snappy) will be published here once the harness in `bench/` is finalised.
+
+For build-time guidance on how to compile OnPair and your benchmark targets for peak performance, see [§Build → Building for performance](#building-for-performance).
 
 ## Robustness & CI
 
@@ -205,91 +198,104 @@ ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
 
 - C++20 compiler: GCC 11+, Clang 13+, AppleClang, or MSVC 19.29+.
 - CMake 3.21+.
-- Boost.Unordered 1.91. If unavailable as a system package, CMake fetches Boost 1.91 through `FetchContent`.
+- Boost.Unordered ≥ 1.81. If unavailable as a system package, CMake fetches Boost through `FetchContent`.
+
+OnPair is built as a STATIC + PIC archive. `BUILD_SHARED_LIBS=ON` is rejected at configure time — most of OnPair's hot path is templated and instantiated in the consumer's translation units, so a shared `libonpair` would ship only a thin shell of the library. The supported deployment is a STATIC archive linked into your final binary or host DSO.
 
 ### Build
 
-A standard release build. Top-level builds enable LTO automatically; the resulting archive is portable across machines of the same OS/ABI:
+A standard Release build produces a portable archive — safe to ship, safe to install:
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
 
-For maximum performance on the build machine — typically benchmarks, profiling runs, or single-target deployments — also enable host-specific code generation. The resulting binary is **not portable** to other CPUs:
-
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DONPAIR_NATIVE_ARCH=ON
-cmake --build build --parallel
-```
+Both LTO and host-native codegen are off by default so that installed archives remain portable across CPUs and link-compatible with downstream consumers.
 
 CMake options that affect the build:
 
-| Option | Default | Notes |
+| Option | Default | Effect |
 |---|---|---|
-| `ONPAIR_ENABLE_LTO` | `ON` (top-level) / `OFF` (embedded) | Per-config IPO on Release / RelWithDebInfo / MinSizeRel. |
-| `ONPAIR_NATIVE_ARCH` | `OFF` | Adds `-march=native` to the library archive only (PRIVATE). |
+| `BUILD_SHARED_LIBS` | — | Rejected at configure time. OnPair is STATIC-only by design (see §Requirements). |
+| `ONPAIR_ENABLE_LTO` | `OFF` | Enables IPO/LTO in any optimised configuration. PRIVATE — does not propagate to consumers. |
+| `ONPAIR_NATIVE_ARCH` | `OFF` | Adds `-march=native` to OnPair's own targets. PRIVATE. Binary not portable across CPUs. |
 | `ONPAIR_BUILD_TESTS` | `OFF` | Build the GoogleTest suite. |
 | `ONPAIR_BUILD_EXAMPLES` | `ON` (top-level) / `OFF` (embedded) | Build the programs under `examples/`. |
-| `ONPAIR_INSTALL` | `ON` (top-level) / `OFF` (embedded) | Install rules and `find_package(OnPair)` config. |
+| `ONPAIR_INSTALL` | `ON` (top-level) / `OFF` (embedded) | Emit install rules and `find_package(OnPair)` config. |
 
-Most of OnPair's hot-path code (decoder, scan loop, automata) is header-only, so the consumer's compile flags drive code generation for those templates.
+#### Building for performance
 
-### Linking
+For benchmarks, profiling runs, or single-host deployments, enable LTO and host-native codegen. The resulting binaries are **not portable** to other CPUs.
+
+> **Critical for benchmarking.** OnPair's hot path (decoder, scan loop, automata) lives in templated headers and is instantiated in **your** translation units. `-DONPAIR_ENABLE_LTO=ON -DONPAIR_NATIVE_ARCH=ON` tunes OnPair's own `.cpp` files only — your benchmark or application binary needs equivalent flags too, or its codegen will dominate runtime.
+
+**Standalone build:**
+
+```bash
+cmake -B build-bench \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DONPAIR_ENABLE_LTO=ON \
+    -DONPAIR_NATIVE_ARCH=ON
+cmake --build build-bench --parallel
+```
+
+**Consuming OnPair from a parent CMake** (`add_subdirectory`, `FetchContent`, or `find_package`):
 
 ```cmake
+add_executable(my_benchmark bench.cpp)
+target_link_libraries(my_benchmark PRIVATE OnPair::onpair)
+
+# Apply -march=native and LTO to YOUR target.
+# Required: header-only hot paths are codegen'd here.
+onpair_optimize_target(my_benchmark)
+```
+
+`onpair_optimize_target()` is registered as soon as OnPair is added to the build (via any of the three integration modes) and applies `-march=native` and IPO/LTO to the named target. If you prefer raw flags, compile your benchmark with `-O3 -march=native -flto` (or MSVC equivalents). Applying `-march=native` only to the OnPair archive is the single most common cause of misleading benchmark numbers.
+
+### Consuming OnPair
+
+`OnPair::onpair` is the canonical alias and works identically whether OnPair is consumed via `find_package()`, `FetchContent`, or `add_subdirectory()`.
+
+#### find_package
+
+Install OnPair to a chosen prefix:
+
+```bash
+cmake --install build --prefix /opt/onpair
+```
+
+Downstream projects then consume it with:
+
+```cmake
+find_package(OnPair CONFIG REQUIRED)
 target_link_libraries(my_target PRIVATE OnPair::onpair)
 ```
 
-`OnPair::onpair` is the canonical alias and works identically whether OnPair is consumed via `add_subdirectory()`, `FetchContent`, or `find_package()`.
-
-### find_package
-
-Once OnPair is installed (`cmake --install build --prefix /some/where`), downstream projects use:
-
-```cmake
-find_package(OnPair 0.1 CONFIG REQUIRED)
-target_link_libraries(my_target PRIVATE OnPair::onpair)
-```
-
-### FetchContent
+#### FetchContent
 
 ```cmake
 include(FetchContent)
 
 FetchContent_Declare(
-  onpair
-  GIT_REPOSITORY https://github.com/gargiulofrancesco/onpair_cpp.git
-  GIT_TAG        main
+    onpair
+    GIT_REPOSITORY https://github.com/gargiulofrancesco/onpair_cpp.git
+    GIT_TAG        <commit-hash>     # pin to a specific commit; main is unstable
 )
-
 FetchContent_MakeAvailable(onpair)
 
 target_link_libraries(my_target PRIVATE OnPair::onpair)
 ```
 
-When OnPair is consumed this way, tests, examples, install rules, and LTO are all opt-in — the parent project keeps full control of its own build policy.
+When OnPair is consumed this way, tests, examples, install rules, and performance flags (`ONPAIR_ENABLE_LTO`, `ONPAIR_NATIVE_ARCH`) are all opt-in — the parent project keeps full control of its own build policy.
 
-### Arrow-Style Buffers
+#### add_subdirectory
 
-Use the raw-buffer overload when the input already exists as a contiguous byte buffer plus offsets:
+Drop OnPair into a sub-tree (vendored, submodule, or otherwise) and add it from the parent CMakeLists:
 
-```cpp
-const char*     bytes   = arrow_string_array.data();
-const uint32_t* offsets = arrow_string_array.offsets(); // n + 1 entries
-std::size_t     n       = arrow_string_array.length();
-
-op::OnPairColumn col = op::OnPairColumn::compress(bytes, offsets, n, cfg);
+```cmake
+add_subdirectory(third_party/onpair_cpp)
+target_link_libraries(my_target PRIVATE OnPair::onpair)
 ```
 
-### Serialization
-
-```cpp
-std::ofstream out("column.onp", std::ios::binary);
-col.write_to(out);
-
-std::ifstream in("column.onp", std::ios::binary);
-op::OnPairColumn restored = op::OnPairColumn::read_from(in);
-```
-
-The binary format starts with `ONPAIR01`, followed by bit width, dictionary bytes and offsets, packed token words, and row token boundaries.
+Tests, examples, install rules, and performance flags default OFF in this mode.

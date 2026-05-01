@@ -24,9 +24,9 @@ public:
     // `scan_fraction`   = fraction of total_bytes to scan before stopping
     DynamicThresholdController(size_t capacity, size_t total_bytes, double scan_fraction)
         : capacity_(capacity)
-        , threshold_(2)
         , scan_budget_(static_cast<size_t>(total_bytes * scan_fraction))
         , check_interval_(std::max<size_t>(capacity / 128, 64))
+        , threshold_(2)
         , next_checkpoint_(check_interval_)
     {}
 
