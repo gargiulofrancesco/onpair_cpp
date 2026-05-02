@@ -241,7 +241,7 @@ jobs:
           lcov --gcov-tool gcov-14 --capture --directory build_cov --output-file coverage.info --ignore-errors mismatch
           lcov --remove coverage.info \
                '*/googletest/*' '*/gtest/*' '*/tests/*' '/usr/*' \
-               --output-file coverage_filtered.info --ignore-errors mismatch
+               --output-file coverage_filtered.info --ignore-errors mismatch,unused
           lcov --list coverage_filtered.info
 
       - name: Upload to Codecov
